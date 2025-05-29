@@ -1,0 +1,39 @@
+{
+  "name": "jest-e2e",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Jest + Puppeteer browser automation project",
+  "bin": {
+    "jest-e2e": "./bin/jest-e2e.js"
+  },
+  "scripts": {
+    "jest-e2e": "node bin/jest-e2e.js",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
+    "test:debug": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --detectOpenHandles",
+    "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "puppeteer": "^24.9.0",
+    "jest-puppeteer": "^11.0.0"
+  },
+  "jest": {
+    "preset": "jest-puppeteer",
+    "testMatch": [
+      "**/__tests__/**/*.test.js", 
+      "**/?(*.)+(spec|test).js",
+      "**/*-e2e.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/bin/"
+    ],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "<rootDir>/config/globals.js",
+      "<rootDir>/config/single-test-enforcer.js"
+    ]
+  }
+} 

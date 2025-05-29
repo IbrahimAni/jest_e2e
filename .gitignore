@@ -1,0 +1,7 @@
+node_modules/
+*.log
+*.png
+*.pdf
+coverage/
+.nyc_output/
+screenshots/ 
