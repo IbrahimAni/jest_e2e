@@ -33,14 +33,13 @@ npm install
 
 2. Run tests:
 ```bash
-npm test
+npx jest-e2e
 ```
 
 ## Available Scripts
 
-- `npm test` - Run all tests
-- `npm run test:watch` - Run tests in watch mode
-- `npm run test:debug` - Run tests with debugging info
+- `npx jest-e2e {test_name}` - Run all tests
+- `npx jest-e2e {test_name} --useLocalBrowser true` - Run tests in visible mode
 
 ## Examples Included
 
