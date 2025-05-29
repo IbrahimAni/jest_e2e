@@ -1,0 +1,27 @@
+# Screenshots
+screenshots/
+*.log
+
+# Development files
+.git/
+.gitignore
+.DS_Store
+.vscode/
+.idea/
+
+# Node modules (already excluded by default)
+node_modules/
+
+# Build outputs
+*.tgz
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db 

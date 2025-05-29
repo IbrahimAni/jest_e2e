@@ -2,7 +2,8 @@
   "name": "jest-e2e",
   "version": "1.0.0",
   "type": "module",
-  "description": "Jest + Puppeteer browser automation project",
+  "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
+  "main": "index.js",
   "bin": {
     "jest-e2e": "./bin/jest-e2e.js"
   },
@@ -14,7 +15,43 @@
     "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
     "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest"
   },
-  "devDependencies": {
+  "keywords": [
+    "jest",
+    "puppeteer",
+    "e2e",
+    "testing",
+    "automation",
+    "browser",
+    "selenium",
+    "playwright",
+    "ui-testing",
+    "integration-testing",
+    "web-testing"
+  ],
+  "author": "Ibrahim Anifowoshe <ianifowoqadev@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IbrahimAni/jest_e2e"
+  },
+  "homepage": "https://github.com/IbrahimAni/jest_e2e#readme",
+  "bugs": {
+    "url": "https://github.com/IbrahimAni/jest_e2e/issues"
+  },
+  "files": [
+    "bin/",
+    "config/",
+    "databuilders/",
+    "__tests__/",
+    "jest-puppeteer.config.js",
+    "README.md",
+    "CLI_README.md",
+    "EXAMPLES.md"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
     "jest": "^29.7.0",
     "puppeteer": "^24.9.0",
     "jest-puppeteer": "^11.0.0"
