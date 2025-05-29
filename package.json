@@ -1,6 +1,6 @@
 {
   "name": "jest-e2e",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
   "main": "index.js",
@@ -59,7 +59,7 @@
   "jest": {
     "preset": "jest-puppeteer",
     "testMatch": [
-      "**/__tests__/**/*.test.js", 
+      "**/__tests__/**/*.test.js",
       "**/?(*.)+(spec|test).js",
       "**/*-e2e.js"
     ],
@@ -73,4 +73,4 @@
       "<rootDir>/config/single-test-enforcer.js"
     ]
   }
-} 
+}
