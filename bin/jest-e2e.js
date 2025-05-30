@@ -3,7 +3,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,8 +82,87 @@ if (options.init) {
   const packageRoot = path.dirname(__dirname);
   const projectRoot = process.cwd();
   
+  // Update package.json for ES modules and Jest configuration
+  const packageJsonPath = path.join(projectRoot, 'package.json');
+  let packageJson = {};
+  
+  if (existsSync(packageJsonPath)) {
+    try {
+      const packageContent = readFileSync(packageJsonPath, 'utf8');
+      packageJson = JSON.parse(packageContent);
+    } catch (error) {
+      console.error('❌ Error reading package.json:', error.message);
+      process.exit(1);
+    }
+  }
+  
+  // Configure package.json for ES modules and Jest
+  packageJson.type = "module";
+  
+  // Add/update scripts
+  if (!packageJson.scripts) {
+    packageJson.scripts = {};
+  }
+  
+  packageJson.scripts = {
+    ...packageJson.scripts,
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
+    "test:debug": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --detectOpenHandles",
+    "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "jest-e2e": "jest-e2e",
+    "jest-e2e:watch": "jest-e2e --watch",
+    "jest-e2e:visible": "jest-e2e --useLocalBrowser true"
+  };
+  
+  // Add Jest configuration
+  packageJson.jest = {
+    "preset": "jest-puppeteer",
+    "testMatch": [
+      "**/__tests__/**/*.test.js",
+      "**/?(*.)+(spec|test).js", 
+      "**/*-e2e.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "testTimeout": 30000,
+    "globals": {
+      "E2ESetup": "readonly",
+      "logStep": "readonly", 
+      "createChromeE2EApi": "readonly",
+      "baseDataBuilder": "readonly"
+    },
+    "setupFilesAfterEnv": [
+      "./config/test-setup.js"
+    ]
+  };
+  
+  // Add/update dependencies
+  if (!packageJson.devDependencies) {
+    packageJson.devDependencies = {};
+  }
+  
+  const requiredDeps = {
+    "jest": "^29.7.0",
+    "puppeteer": "^24.9.0", 
+    "jest-puppeteer": "^11.0.0"
+  };
+  
+  Object.assign(packageJson.devDependencies, requiredDeps);
+  
+  // Write updated package.json
+  try {
+    writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+    console.log('📄 Updated: package.json (added ES module support and Jest config)');
+  } catch (error) {
+    console.error('❌ Error updating package.json:', error.message);
+    process.exit(1);
+  }
+  
   // Create directories
-  const dirsToCreate = ['__tests__', 'databuilders'];
+  const dirsToCreate = ['__tests__', 'databuilders', 'config'];
   
   dirsToCreate.forEach(dir => {
     const targetDir = path.join(projectRoot, dir);
@@ -133,12 +212,39 @@ if (options.init) {
     }
   });
   
+  // Create test-setup.js file
+  const testSetupContent = `// Jest E2E Test Setup
+// This file configures global variables for Jest E2E tests
+
+import { E2ESetup } from 'jest-e2e';
+import { logStep } from 'jest-e2e';
+import { createChromeE2EApi } from 'jest-e2e';
+import { baseDataBuilder } from 'jest-e2e';
+
+// Make Jest E2E functions globally available
+global.E2ESetup = E2ESetup;
+global.logStep = logStep;
+global.createChromeE2EApi = createChromeE2EApi;
+global.baseDataBuilder = baseDataBuilder;
+`;
+  
+  try {
+    writeFileSync(path.join(projectRoot, 'config', 'test-setup.js'), testSetupContent);
+    console.log('📄 Created: config/test-setup.js');
+  } catch (error) {
+    console.error('❌ Error creating test-setup.js:', error.message);
+  }
+  
   console.log('\n✅ Jest E2E project initialized successfully!');
   console.log('\nNext steps:');
   console.log('1. Run: npm install');
-  console.log('2. Test examples: jest-e2e');
+  console.log('2. Test examples: npm run jest-e2e');
   console.log('3. Edit the example tests to match your application');
   console.log('4. Create your own test files in __tests__/');
+  console.log('\nAvailable scripts:');
+  console.log('  npm run jest-e2e              # Run all E2E tests');
+  console.log('  npm run jest-e2e:visible      # Run with visible browser');
+  console.log('  npm run jest-e2e:watch        # Run in watch mode');
   
   process.exit(0);
 }

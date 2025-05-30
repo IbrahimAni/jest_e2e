@@ -42,11 +42,31 @@ npx jest-e2e
 ### 2. That's it! 🎉
 The framework automatically:
 - ✅ Detects it's your first run
-- ✅ Creates `__tests__/` and `databuilders/` directories  
-- ✅ Copies example tests and configuration
+- ✅ Updates your `package.json` with ES module support and Jest configuration
+- ✅ Adds helpful npm scripts (`npm run jest-e2e`, `npm run jest-e2e:visible`, etc.)
+- ✅ Creates `__tests__/`, `databuilders/`, and `config/` directories  
+- ✅ Copies example tests and configuration files
+- ✅ Sets up global access to Jest E2E functions
+- ✅ Installs required dependencies automatically
 - ✅ Runs the example tests to show you it works
 
-### 3. Customize for Your App
+### 3. Use the New npm Scripts
+After initialization, you can use these convenient scripts:
+```bash
+# Run all E2E tests (headless)
+npm run jest-e2e
+
+# Run with visible browser for debugging  
+npm run jest-e2e:visible
+
+# Run in watch mode
+npm run jest-e2e:watch
+
+# Or use the CLI directly with more options
+npx jest-e2e --repl
+```
+
+### 4. Customize for Your App
 Edit the example tests in `__tests__/`:
 ```javascript
 // __tests__/my-login-test-e2e.js
@@ -62,18 +82,6 @@ test('User can login successfully', async () => {
   await device.waitForSelector('.dashboard');
   expect(await device.getInnerText('.welcome')).toContain('Welcome');
 });
-```
-
-### 4. Run Your Tests
-```bash
-# Run all tests (headless)
-npx jest-e2e
-
-# Run with visible browser for debugging
-npx jest-e2e --useLocalBrowser true
-
-# Keep browser open for inspection
-npx jest-e2e my-login-test --repl
 ```
 
 ## 🎯 CLI Usage
@@ -115,9 +123,18 @@ jest-e2e user-journey --slowmo 500 --useLocalBrowser true
 ## 🔧 API Reference
 
 ### E2ESetup()
-Main setup function that returns device and page objects:
+Main setup function that configures test environment with data builders and devices:
 ```javascript
-const { device, page } = await E2ESetup();
+const { getTestData, getDevices } = E2ESetup({
+  databuilder: AgentTestDataBuilder(),
+  devices: {
+    device: createChromeE2EApi({}),
+  },
+});
+
+// Use in your tests
+const { device } = getDevices();
+const { userEmail, userPassword } = getTestData();
 ```
 
 ### Device API
@@ -147,7 +164,10 @@ const isVisible = await device.isVisible(selector);
 ### Data Builders
 Generate test data with inheritance:
 ```javascript
-// Get test data
+// Import in your test files
+import { AgentTestDataBuilder } from '../databuilders/agent-test-data-builder.js';
+
+// Get test data (available globally in tests)
 const { userEmail, userPassword } = getTestData();
 
 // Custom data builder
@@ -162,7 +182,7 @@ export function myCustomDataBuilder() {
 ```
 
 ### Step Logging
-Track test progress:
+Track test progress (available globally):
 ```javascript
 logStep('Navigating to login page');
 logStep('Filling user credentials');
@@ -171,28 +191,61 @@ logStep('Submitting login form');
 
 ## 📁 Project Structure
 
+After running `npx jest-e2e` for the first time, your project will have:
+
 ```
 your-project/
-├── __tests__/                     # Your E2E tests (copy from examples)
-│   ├── login-success-e2e.js
-│   ├── user-registration-e2e.js
-│   └── checkout-flow-e2e.js
-├── databuilders/                  # Custom data builders
+├── __tests__/                     # Your E2E tests (auto-created with examples)
+│   ├── example-login-success-e2e.js
+│   ├── example-login-invalid-e2e.js
+│   └── example-form-validation-e2e.js
+├── databuilders/                  # Test data builders (auto-created)
 │   ├── base-data-builder.js
-│   ├── user-data-builder.js
-│   └── product-data-builder.js
-├── jest-puppeteer.config.js       # Puppeteer configuration
-└── package.json
+│   └── agent-test-data-builder.js
+├── config/                        # Configuration files (auto-created)
+│   └── test-setup.js              # Global Jest E2E setup
+├── jest-puppeteer.config.js       # Puppeteer configuration (auto-created)
+└── package.json                   # Updated with ES modules & Jest config
 ```
 
-**Included Example Tests:**
-The package comes with example tests showing different patterns:
-- `example-login-success-e2e.js` - Successful login flow with data builders
-- `example-form-validation-e2e.js` - Form validation using fluent expect API  
-- `example-login-invalid-e2e.js` - Error handling and invalid credential testing
+**Auto-Generated Files:**
+The framework automatically creates all necessary files:
+- **Example Tests**: Three example tests showing different patterns
+- **Data Builders**: Base and example data builders for test data generation
+- **Configuration**: Jest setup and Puppeteer configuration
+- **Package Configuration**: Your package.json gets updated with proper ES module and Jest settings
 
 ## 🏗️ Custom Configuration
 
+### Automatic Package.json Updates
+When you run `npx jest-e2e` for the first time, the framework automatically updates your `package.json` with:
+
+```json
+{
+  "type": "module",                    // Enables ES6 imports
+  "scripts": {
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "jest-e2e": "jest-e2e",                // Convenient E2E scripts
+    "jest-e2e:visible": "jest-e2e --useLocalBrowser true",
+    "jest-e2e:watch": "jest-e2e --watch"
+  },
+  "jest": {                            // Jest configuration for E2E
+    "preset": "jest-puppeteer",
+    "testMatch": ["**/*-e2e.js"],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": ["./config/test-setup.js"]
+  },
+  "devDependencies": {                 // Required testing dependencies
+    "jest": "^29.7.0",
+    "puppeteer": "^24.9.0",
+    "jest-puppeteer": "^11.0.0"
+  }
+}
+```
+
+This automatic configuration eliminates the need for manual setup and ensures everything works out of the box!
+
+### Custom Puppeteer Configuration
 Create `jest-puppeteer.config.js`:
 ```javascript
 export default {
@@ -209,7 +262,42 @@ export default {
 };
 ```
 
-## 🧪 Writing Tests
+## 🎯 Writing Tests
+
+### Basic Test Structure
+Since Jest E2E functions are globally available, you can write tests without imports:
+```javascript
+/* eslint-disable no-undef */
+"use strict";
+
+// Import your specific data builders
+import { AgentTestDataBuilder } from '../databuilders/agent-test-data-builder.js';
+
+const { getTestData, getDevices } = E2ESetup({
+  databuilder: AgentTestDataBuilder(),
+  devices: {
+    device: createChromeE2EApi({}),
+  },
+});
+
+test("User can complete checkout", async () => {
+  const { device } = getDevices();
+  const { userEmail, userPassword } = getTestData();
+  
+  logStep('Navigate to login page');
+  await device.navigate("https://your-app.com/login");
+  
+  logStep('Fill login credentials');
+  await device.type("#email", userEmail);
+  await device.type("#password", userPassword);
+  
+  logStep('Submit login form');
+  await device.click("#login-button");
+  
+  // Verify success
+  await device.expect("body").toContain("Dashboard");
+});
+```
 
 ### Single Test Rule
 Each test file must contain exactly one test function:
@@ -233,11 +321,9 @@ Use `-e2e.js` suffix for test files:
 ### Data Builder Pattern
 ```javascript
 // databuilders/user-data-builder.js
-import { baseDataBuilder } from 'jest-e2e';
-
 export function userDataBuilder() {
   return {
-    ...baseDataBuilder(),
+    ...baseDataBuilder(), // Available globally
     userEmail: 'test@example.com',
     userPassword: 'password123',
     userFullName: 'Test User',

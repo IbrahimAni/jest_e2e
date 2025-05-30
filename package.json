@@ -1,6 +1,6 @@
 {
   "name": "jest-e2e",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
   "main": "index.js",

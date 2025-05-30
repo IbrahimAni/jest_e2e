@@ -101,4 +101,9 @@ class StepLogger {
 // Global step logger instance
 const stepLogger = new StepLogger();
 
+// Convenience function for logging steps
+export const logStep = (action, details = '') => {
+  stepLogger.step(action, details);
+};
+
 export { StepLogger, stepLogger }; 

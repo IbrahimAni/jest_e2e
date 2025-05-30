@@ -22,3 +22,6 @@ export class BaseDataBuilder {
     return this.version;
   }
 }
+
+// Export a convenience instance
+export const baseDataBuilder = new BaseDataBuilder();
