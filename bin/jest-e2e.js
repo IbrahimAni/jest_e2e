@@ -3,6 +3,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { copyFileSync, mkdirSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,8 @@ const options = {
   screenshot: false,
   silent: false,
   steps: true,
-  help: false
+  help: false,
+  init: false
 };
 
 // Parse arguments
@@ -30,6 +32,8 @@ for (let i = 0; i < args.length; i++) {
   
   if (arg === '--help' || arg === '-h') {
     options.help = true;
+  } else if (arg === 'init') {
+    options.init = true;
   } else if (arg === '--useLocalBrowser') {
     options.useLocalBrowser = args[i + 1] === 'true';
     i++; // Skip next argument
@@ -54,9 +58,89 @@ for (let i = 0; i < args.length; i++) {
     options.steps = false;
   } else if (arg === '--no-steps') {
     options.steps = false;
-  } else if (!arg.startsWith('--') && !options.testName) {
+  } else if (!arg.startsWith('--') && !options.testName && !options.init) {
     options.testName = arg;
   }
+}
+
+// Auto-detect if project needs initialization
+const projectRoot = process.cwd();
+const hasTestsDir = existsSync(path.join(projectRoot, '__tests__'));
+const hasConfig = existsSync(path.join(projectRoot, 'jest-puppeteer.config.js'));
+const needsInit = !hasTestsDir && !hasConfig && !options.init && !options.help;
+
+if (needsInit) {
+  console.log('🔍 No Jest E2E configuration detected.');
+  console.log('🚀 Initializing your project automatically...\n');
+  options.init = true;
+}
+
+// Handle init command
+if (options.init) {
+  console.log('🚀 Initializing Jest E2E project...\n');
+  
+  const packageRoot = path.dirname(__dirname);
+  const projectRoot = process.cwd();
+  
+  // Create directories
+  const dirsToCreate = ['__tests__', 'databuilders'];
+  
+  dirsToCreate.forEach(dir => {
+    const targetDir = path.join(projectRoot, dir);
+    if (!existsSync(targetDir)) {
+      mkdirSync(targetDir, { recursive: true });
+      console.log(`📁 Created directory: ${dir}/`);
+    }
+  });
+  
+  // Copy files
+  const filesToCopy = [
+    {
+      source: path.join(packageRoot, 'jest-puppeteer.config.js'),
+      target: path.join(projectRoot, 'jest-puppeteer.config.js')
+    },
+    {
+      source: path.join(packageRoot, '__tests__', 'example-login-success-e2e.js'),
+      target: path.join(projectRoot, '__tests__', 'example-login-success-e2e.js')
+    },
+    {
+      source: path.join(packageRoot, '__tests__', 'example-login-invalid-e2e.js'),
+      target: path.join(projectRoot, '__tests__', 'example-login-invalid-e2e.js')
+    },
+    {
+      source: path.join(packageRoot, '__tests__', 'example-form-validation-e2e.js'),
+      target: path.join(projectRoot, '__tests__', 'example-form-validation-e2e.js')
+    },
+    {
+      source: path.join(packageRoot, 'databuilders', 'base-data-builder.js'),
+      target: path.join(projectRoot, 'databuilders', 'base-data-builder.js')
+    },
+    {
+      source: path.join(packageRoot, 'databuilders', 'agent-test-data-builder.js'),
+      target: path.join(projectRoot, 'databuilders', 'agent-test-data-builder.js')
+    }
+  ];
+  
+  filesToCopy.forEach(({ source, target }) => {
+    try {
+      if (existsSync(source)) {
+        copyFileSync(source, target);
+        const relativePath = path.relative(projectRoot, target);
+        console.log(`📄 Copied: ${relativePath}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error copying ${path.basename(target)}:`, error.message);
+    }
+  });
+  
+  console.log('\n✅ Jest E2E project initialized successfully!');
+  console.log('\nNext steps:');
+  console.log('1. Run: npm install');
+  console.log('2. Test examples: jest-e2e');
+  console.log('3. Edit the example tests to match your application');
+  console.log('4. Create your own test files in __tests__/');
+  
+  process.exit(0);
 }
 
 // Show help
@@ -65,7 +149,10 @@ if (options.help) {
 🚀 Jest E2E Test Runner
 
 USAGE:
-  jest-e2e [test_name] [options]
+  jest-e2e [command|test_name] [options]
+
+COMMANDS:
+  init                      Initialize Jest E2E project (copies example files)
 
 ARGUMENTS:
   test_name                 Name of the test to run (optional, runs all if not specified)
@@ -84,7 +171,8 @@ OPTIONS:
   --help, -h                Show this help message
 
 EXAMPLES:
-  jest-e2e                                    # Run all tests (headless with step logging)
+  jest-e2e init                               # Force initialize project with example files
+  jest-e2e                                    # Run all tests (auto-initializes if needed)
   jest-e2e login-success                      # Run specific test (headless with step logging)
   jest-e2e --useLocalBrowser true             # Run all tests with visible browser
   jest-e2e login-success --repl               # Run test and keep browser open
@@ -98,6 +186,10 @@ ENVIRONMENT:
   Tests run in headless mode by default for CI/automation.
   Use --useLocalBrowser true for local development and debugging.
   Step logging is enabled by default and shows real-time test progress.
+  
+NOTE:
+  If no __tests__/ directory or jest-puppeteer.config.js is found,
+  the framework will automatically initialize your project.
   `);
   process.exit(0);
 }

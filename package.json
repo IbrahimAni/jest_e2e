@@ -1,6 +1,6 @@
 {
   "name": "jest-e2e",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
   "main": "index.js",
@@ -13,7 +13,8 @@
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
     "test:debug": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --detectOpenHandles",
     "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
-    "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest"
+    "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "postinstall": "echo '\n🚀 Jest E2E installed successfully!' && echo '📖 Run: npx jest-e2e' && echo '   (auto-initializes with examples on first run)\n'"
   },
   "keywords": [
     "jest",

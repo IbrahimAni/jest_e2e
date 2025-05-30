@@ -28,30 +28,34 @@ npx jest-e2e --help
 
 ## 🏃‍♂️ Quick Start
 
-### 1. Initialize Your Project
+### 1. Install and Initialize
 ```bash
 mkdir my-e2e-tests
 cd my-e2e-tests
 npm init -y
 npm install jest-e2e@latest
+
+# Just run it - auto-initializes with examples on first run
+npx jest-e2e
 ```
 
-### 2. Copy Example Tests (Optional)
-The package includes example tests that you can copy and modify:
-```bash
-# Copy the example tests to your project
-cp -r node_modules/jest-e2e/__tests__/ ./
-```
+### 2. That's it! 🎉
+The framework automatically:
+- ✅ Detects it's your first run
+- ✅ Creates `__tests__/` and `databuilders/` directories  
+- ✅ Copies example tests and configuration
+- ✅ Runs the example tests to show you it works
 
-### 3. Create Your First Test
-Create `__tests__/login-e2e.js`:
+### 3. Customize for Your App
+Edit the example tests in `__tests__/`:
 ```javascript
+// __tests__/my-login-test-e2e.js
 test('User can login successfully', async () => {
   const { device } = await E2ESetup();
   const { userEmail, userPassword } = getTestData();
   
-  await device.navigate('https://example.com/login');
-  await device.fill('#email', userEmail);
+  await device.navigate('https://your-app.com/login');  // 👈 Change URL
+  await device.fill('#email', userEmail);              // 👈 Update selectors
   await device.fill('#password', userPassword);
   await device.click('#login-button');
   
@@ -63,16 +67,13 @@ test('User can login successfully', async () => {
 ### 4. Run Your Tests
 ```bash
 # Run all tests (headless)
-jest-e2e
+npx jest-e2e
 
-# Run specific test
-jest-e2e login-e2e
+# Run with visible browser for debugging
+npx jest-e2e --useLocalBrowser true
 
-# Run with visible browser
-jest-e2e --useLocalBrowser true
-
-# Keep browser open for debugging
-jest-e2e login-e2e --repl
+# Keep browser open for inspection
+npx jest-e2e my-login-test --repl
 ```
 
 ## 🎯 CLI Usage
