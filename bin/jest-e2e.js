@@ -348,6 +348,14 @@ if (options.slowmo > 0) {
   env.CI = 'false'; // Force visible browser for slowmo
 }
 
+if (options.useLocalBrowser || options.repl || options.slowmo > 0) {
+  env.JEST_E2E_SMOOTH = 'true';
+  env.JEST_E2E_DISABLE_ANIMATIONS = 'true';
+  if (!env.JEST_E2E_ACTION_DELAY) {
+    env.JEST_E2E_ACTION_DELAY = options.slowmo > 0 ? String(options.slowmo) : '30';
+  }
+}
+
 if (options.retries > 0) {
   env.JEST_E2E_RETRIES = options.retries.toString();
 }
@@ -426,11 +434,70 @@ console.log('');
 // Run Jest
 const jestCommand = 'npx';
 const jestCmdArgs = ['jest', ...jestArgs];
+
+const shouldSuppressSummaryLine = (line) => {
+  const plain = line.replace(/\x1B\[[0-9;]*m/g, '').trim();
+  return (
+    plain.startsWith('Test Suites:') ||
+    plain.startsWith('Tests:') ||
+    plain.startsWith('Snapshots:') ||
+    plain.startsWith('Time:')
+  );
+};
+
+const ANSI = {
+  reset: '\x1b[0m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+};
+
+const colorizeStatusLine = (line) => {
+  const plain = line.replace(/\x1B\[[0-9;]*m/g, '');
+  if (plain.startsWith('FAIL ')) return `${ANSI.red}${plain}${ANSI.reset}`;
+  if (plain.startsWith('PASS ')) return `${ANSI.green}${plain}${ANSI.reset}`;
+  if (plain.startsWith('SKIP ')) return `${ANSI.yellow}${plain}${ANSI.reset}`;
+  return line;
+};
+
+const pipeWithOptionalSummaryFilter = (stream, destination, suppressSummary) => {
+  if (!stream) return;
+  let buffer = '';
+
+  stream.on('data', (chunk) => {
+    const text = chunk.toString();
+    if (!suppressSummary) {
+      destination.write(text);
+      return;
+    }
+
+    buffer += text;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!shouldSuppressSummaryLine(line)) {
+        destination.write(colorizeStatusLine(line) + '\n');
+      }
+    }
+  });
+
+  stream.on('end', () => {
+    if (buffer && (!suppressSummary || !shouldSuppressSummaryLine(buffer))) {
+      destination.write(colorizeStatusLine(buffer));
+    }
+  });
+};
+
+const suppressSummary = !options.verbose;
 const child = spawn(jestCommand, jestCmdArgs, {
-  stdio: 'inherit',
+  stdio: ['inherit', 'pipe', 'pipe'],
   env: env,
   cwd: process.cwd()
 });
+
+pipeWithOptionalSummaryFilter(child.stdout, process.stdout, suppressSummary);
+pipeWithOptionalSummaryFilter(child.stderr, process.stderr, suppressSummary);
 
 child.on('close', (code) => {
   if (options.repl && code === 0) {

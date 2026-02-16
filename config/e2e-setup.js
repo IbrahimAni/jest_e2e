@@ -162,6 +162,23 @@ function E2ESetup(config = {}) {
   if (config.timeout) {
     global.__JEST_E2E_TIMEOUT__ = config.timeout;
   }
+  const parsedActionDelayEnv = Number.parseInt(process.env.JEST_E2E_ACTION_DELAY || '', 10);
+  const smoothMode = typeof config.smoothMode === 'boolean'
+    ? config.smoothMode
+    : process.env.JEST_E2E_SMOOTH === 'true';
+  const actionDelay = typeof config.actionDelay === 'number'
+    ? config.actionDelay
+    : (Number.isNaN(parsedActionDelayEnv) ? undefined : parsedActionDelayEnv);
+  const disableAnimations = typeof config.disableAnimations === 'boolean'
+    ? config.disableAnimations
+    : (process.env.JEST_E2E_DISABLE_ANIMATIONS === 'true' || smoothMode);
+
+  global.__JEST_E2E_SMOOTH__ = smoothMode;
+  if (typeof actionDelay === 'number') {
+    global.__JEST_E2E_ACTION_DELAY__ = actionDelay;
+  }
+  global.__JEST_E2E_DISABLE_ANIMATIONS__ = disableAnimations;
+
   const parsedRetryEnv = Number.parseInt(process.env.JEST_E2E_RETRIES || '', 10);
   const retries = typeof config.retries === 'number'
     ? config.retries

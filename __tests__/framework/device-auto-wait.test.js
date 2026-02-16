@@ -18,7 +18,7 @@ describe('device auto-wait behavior', () => {
 
     expect(global.page.waitForSelector).toHaveBeenCalledWith(
       '[data-testid="submit-btn"]',
-      { timeout: 1234 }
+      expect.objectContaining({ timeout: 1234 })
     );
     expect(global.page.click).toHaveBeenCalledWith('[data-testid="submit-btn"]', {});
   });
@@ -28,7 +28,7 @@ describe('device auto-wait behavior', () => {
 
     expect(global.page.waitForSelector).toHaveBeenCalledWith(
       '[data-testid="email"]',
-      { timeout: 5000 }
+      expect.objectContaining({ timeout: 5000 })
     );
     expect(global.page.type).toHaveBeenCalledWith('[data-testid="email"]', 'user@example.com', {});
   });
@@ -38,7 +38,7 @@ describe('device auto-wait behavior', () => {
 
     expect(global.page.waitForSelector).toHaveBeenCalledWith(
       '[data-testid="menu-item"]',
-      { timeout: 5000 }
+      expect.objectContaining({ timeout: 5000 })
     );
     expect(global.page.hover).toHaveBeenCalledWith('[data-testid="menu-item"]');
   });

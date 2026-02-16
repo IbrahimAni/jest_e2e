@@ -179,6 +179,50 @@ describe('E2ESetup configurable timeout', () => {
   });
 });
 
+describe('E2ESetup smooth mode config', () => {
+  const originalBeforeEach = global.beforeEach;
+  const originalAfterEach = global.afterEach;
+  const originalBeforeAll = global.beforeAll;
+  const originalAfterAll = global.afterAll;
+
+  beforeEach(() => {
+    global.beforeEach = jest.fn();
+    global.afterEach = jest.fn();
+    global.beforeAll = jest.fn();
+    global.afterAll = jest.fn();
+  });
+
+  afterEach(() => {
+    global.beforeEach = originalBeforeEach;
+    global.afterEach = originalAfterEach;
+    global.beforeAll = originalBeforeAll;
+    global.afterAll = originalAfterAll;
+    delete global.__JEST_E2E_SMOOTH__;
+    delete global.__JEST_E2E_ACTION_DELAY__;
+    delete global.__JEST_E2E_DISABLE_ANIMATIONS__;
+    delete process.env.JEST_E2E_SMOOTH;
+    delete process.env.JEST_E2E_ACTION_DELAY;
+    delete process.env.JEST_E2E_DISABLE_ANIMATIONS;
+  });
+
+  test('sets smooth globals from config', () => {
+    E2ESetup({ smoothMode: true, actionDelay: 45, disableAnimations: true });
+    expect(global.__JEST_E2E_SMOOTH__).toBe(true);
+    expect(global.__JEST_E2E_ACTION_DELAY__).toBe(45);
+    expect(global.__JEST_E2E_DISABLE_ANIMATIONS__).toBe(true);
+  });
+
+  test('uses env fallback when config not provided', () => {
+    process.env.JEST_E2E_SMOOTH = 'true';
+    process.env.JEST_E2E_ACTION_DELAY = '35';
+    process.env.JEST_E2E_DISABLE_ANIMATIONS = 'true';
+    E2ESetup({});
+    expect(global.__JEST_E2E_SMOOTH__).toBe(true);
+    expect(global.__JEST_E2E_ACTION_DELAY__).toBe(35);
+    expect(global.__JEST_E2E_DISABLE_ANIMATIONS__).toBe(true);
+  });
+});
+
 describe('E2ESetup retry support', () => {
   const originalBeforeEach = global.beforeEach;
   const originalAfterEach = global.afterEach;

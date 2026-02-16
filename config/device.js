@@ -26,6 +26,59 @@ const smartSelector = (selector) => {
 
 const getDefaultTimeout = () => global.__JEST_E2E_TIMEOUT__ || DEFAULT_WAIT_TIMEOUT;
 const resolveWaitTimeout = (options = {}) => options.waitTimeout || options.timeout || getDefaultTimeout();
+const isSmoothModeEnabled = () => global.__JEST_E2E_SMOOTH__ === true || process.env.JEST_E2E_SMOOTH === 'true';
+const shouldDisableAnimations = () => global.__JEST_E2E_DISABLE_ANIMATIONS__ === true || isSmoothModeEnabled();
+const getActionDelay = (options = {}) => {
+  if (typeof options.actionDelay === 'number') return options.actionDelay;
+  if (typeof options.delay === 'number') return options.delay;
+  if (typeof global.__JEST_E2E_ACTION_DELAY__ === 'number') return global.__JEST_E2E_ACTION_DELAY__;
+  return isSmoothModeEnabled() ? 30 : 0;
+};
+
+const disableAnimationsIfNeeded = async () => {
+  if (!shouldDisableAnimations()) return;
+  await page.evaluate(() => {
+    const id = '__jest_e2e_disable_animations__';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      *, *::before, *::after {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  });
+};
+
+const ensureActionable = async (resolvedSelector, timeout) => {
+  await page.waitForSelector(resolvedSelector, { timeout, visible: true });
+  await page.$eval(resolvedSelector, (el) => {
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
+  });
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
+      return (
+        style.visibility !== 'hidden' &&
+        style.display !== 'none' &&
+        rect.width > 0 &&
+        rect.height > 0 &&
+        !disabled
+      );
+    },
+    { timeout },
+    resolvedSelector
+  );
+};
 
 const enhanceError = async (error, selector, resolvedSelector, action) => {
   let currentUrl = 'unknown';
@@ -110,6 +163,7 @@ const device = {
   navigate: async (url, options = {}) => {
     stepLogger.step('Navigating', `to ${url}`);
     const result = await page.goto(url, options);
+    await disableAnimationsIfNeeded();
     return result;
   },
   
@@ -117,11 +171,16 @@ const device = {
   click: async (selector, options = {}) => {
     const resolved = smartSelector(selector);
     const waitTimeout = resolveWaitTimeout(options);
-    const { waitTimeout: _waitTimeout, ...clickOptions } = options;
+    const actionDelay = getActionDelay(options);
+    const { waitTimeout: _waitTimeout, actionDelay: _actionDelay, ...clickOptions } = options;
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     stepLogger.step('Clicking', `"${displaySelector}"`);
     try {
-      await page.waitForSelector(resolved, { timeout: waitTimeout });
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
+      if (actionDelay > 0 && typeof clickOptions.delay !== 'number') {
+        clickOptions.delay = actionDelay;
+      }
       const result = await page.click(resolved, clickOptions);
       return result;
     } catch (error) {
@@ -132,12 +191,17 @@ const device = {
   type: async (selector, text, options = {}) => {
     const resolved = smartSelector(selector);
     const waitTimeout = resolveWaitTimeout(options);
-    const { waitTimeout: _waitTimeout, ...typeOptions } = options;
+    const actionDelay = getActionDelay(options);
+    const { waitTimeout: _waitTimeout, actionDelay: _actionDelay, ...typeOptions } = options;
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     const displayText = text.length > 20 ? text.substring(0, 20) + '...' : text;
     stepLogger.step('Typing', `"${displayText}" into "${displaySelector}"`);
     try {
-      await page.waitForSelector(resolved, { timeout: waitTimeout });
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
+      if (actionDelay > 0 && typeof typeOptions.delay !== 'number') {
+        typeOptions.delay = actionDelay;
+      }
       const result = await page.type(resolved, text, typeOptions);
       return result;
     } catch (error) {
@@ -151,7 +215,8 @@ const device = {
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     stepLogger.step('Selecting', `"${value}" from "${displaySelector}"`);
     try {
-      await page.waitForSelector(resolved, { timeout: waitTimeout });
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
       const values = Array.isArray(value) ? value : [value];
       const result = await page.select(resolved, ...values);
       return result;
@@ -166,7 +231,8 @@ const device = {
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     stepLogger.step('Hovering', `"${displaySelector}"`);
     try {
-      await page.waitForSelector(resolved, { timeout: waitTimeout });
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
       const result = await page.hover(resolved);
       return result;
     } catch (error) {
