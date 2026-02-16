@@ -62,6 +62,8 @@
   },
   "jest": {
     "preset": "jest-puppeteer",
+    "testEnvironment": "<rootDir>/config/repl-puppeteer-environment.cjs",
+    "globalTeardown": "<rootDir>/config/repl-global-teardown.cjs",
     "testMatch": [
       "**/__tests__/**/*.test.js",
       "**/?(*.)+(spec|test).js",

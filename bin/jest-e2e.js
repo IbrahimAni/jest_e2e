@@ -400,6 +400,11 @@ if (options.debug) {
   env.DEBUG = 'true';
 }
 
+// REPL intentionally leaves browser/page handles open.
+if (options.repl) {
+  jestArgs.push('--openHandlesTimeout=0');
+}
+
 // Always add --silent to suppress Jest's verbose output
 if (!options.verbose) {
   jestArgs.push('--silent');
