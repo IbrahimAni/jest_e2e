@@ -316,6 +316,7 @@ EXAMPLES:
 ENVIRONMENT:
   Tests run in headless mode by default for CI/automation.
   Use --useLocalBrowser true for local development and debugging.
+  Visible mode runs with a single Jest worker to keep one browser instance.
   Step logging is enabled by default and shows real-time test progress.
   
 NOTE:
@@ -383,6 +384,11 @@ if (options.testName) {
 // Add Jest options
 if (options.watch) {
   jestArgs.push('--watch');
+}
+
+// In visible/repl/slowmo mode, force one worker so only one browser is launched.
+if (options.useLocalBrowser || options.repl || options.slowmo > 0) {
+  jestArgs.push('--runInBand');
 }
 
 if (options.verbose) {

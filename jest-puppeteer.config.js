@@ -14,6 +14,7 @@ export default {
       '--disable-dev-shm-usage'
     ]
   },
+  // Use default context so automation runs in the first opened browser tab/window.
   browserContext: 'default',
   
   // Global viewport settings for all tests

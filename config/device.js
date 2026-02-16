@@ -50,7 +50,36 @@ const enhanceError = async (error, selector, resolvedSelector, action) => {
   throw enhanced;
 };
 
-const enhanceAssertionError = async (error, selector, resolvedSelector, assertion, expected, actual) => {
+const truncate = (text, maxLength = 200) => {
+  if (typeof text !== 'string') return String(text);
+  // Collapse whitespace (newlines, tabs, multiple spaces) into single spaces
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return cleaned.substring(0, maxLength) + `... (${cleaned.length} chars total)`;
+};
+
+const cleanUserStack = (stack) => {
+  if (!stack || typeof stack !== 'string') return '';
+  const lines = stack
+    .split('\n')
+    .slice(1)
+    .filter((line) =>
+      !line.includes('config/device.js') &&
+      !line.includes('config/globals.js')
+    );
+  return lines.join('\n');
+};
+
+const formatActualForError = (selector, actual) => {
+  if (typeof actual === 'undefined') return '';
+  if (selector === 'body' || selector === 'html') {
+    // Keep body/html output informative but bounded.
+    return truncate(actual, 300);
+  }
+  return truncate(actual);
+};
+
+const enhanceAssertionError = async (error, selector, resolvedSelector, assertion, expected, actual, callerStack) => {
   let currentUrl = 'unknown';
   try {
     currentUrl = page.url();
@@ -59,7 +88,7 @@ const enhanceAssertionError = async (error, selector, resolvedSelector, assertio
   }
 
   const expectedLine = typeof expected === 'undefined' ? '' : `\n  Expected: ${expected}`;
-  const actualLine = typeof actual === 'undefined' ? '' : `\n  Actual: ${actual}`;
+  const actualLine = typeof actual === 'undefined' ? '' : `\n  Actual: ${formatActualForError(selector, actual)}`;
   const enhanced = new Error(
     `Assertion "${assertion}" failed for "${selector}" (resolved to "${resolvedSelector}")` +
       expectedLine +
@@ -67,7 +96,12 @@ const enhanceAssertionError = async (error, selector, resolvedSelector, assertio
       `\n  Page URL: ${currentUrl}\n` +
       `  Original error: ${error.message}`
   );
-  enhanced.stack = error.stack;
+  const userStack = cleanUserStack(callerStack);
+  if (userStack) {
+    enhanced.stack = `${enhanced.name}: ${enhanced.message}\n${userStack}`;
+  } else {
+    enhanced.stack = error.stack;
+  }
   throw enhanced;
 };
 
@@ -218,6 +252,7 @@ const device = {
   expect: (selector, options = {}) => {
     const resolvedSelector = smartSelector(selector);
     const waitTimeout = resolveWaitTimeout(options);
+    const callerStack = new Error().stack;
     
     const createAssertions = (negate = false) => ({
       // Text content assertions
@@ -227,14 +262,15 @@ const device = {
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
           text = await page.$eval(resolvedSelector, (el) => el.textContent);
-          if (negate) {
-            expect(text).not.toContain(expectedText);
-          } else {
-            expect(text).toContain(expectedText);
+          const contains = text.includes(expectedText);
+          if (negate && contains) {
+            throw new Error(`Expected text to NOT contain "${expectedText}" but it was found`);
+          } else if (!negate && !contains) {
+            throw new Error(`Expected text to contain "${expectedText}" but it was not found`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to contain "${expectedText}"`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toContain', expected, text);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toContain', expected, text, callerStack);
         }
       },
       
@@ -244,14 +280,14 @@ const device = {
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
           text = await page.$eval(resolvedSelector, (el) => el.textContent.trim());
-          if (negate) {
-            expect(text).not.toBe(expectedText);
-          } else {
-            expect(text).toBe(expectedText);
+          if (negate && text === expectedText) {
+            throw new Error(`Expected text to NOT equal "${expectedText}" but it did`);
+          } else if (!negate && text !== expectedText) {
+            throw new Error(`Expected text to equal "${expectedText}" but got different text`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to equal "${expectedText}"`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveText', expected, text);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveText', expected, text, callerStack);
         }
       },
       
@@ -276,7 +312,7 @@ const device = {
           }
         } catch (error) {
           const expected = negate ? 'to be not visible' : 'to be visible';
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toBeVisible', expected, isVisible);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toBeVisible', expected, isVisible, callerStack);
         }
       },
       
@@ -295,7 +331,7 @@ const device = {
           }
         } catch (error) {
           const expected = negate ? 'to not exist' : 'to exist';
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toExist', expected, exists);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toExist', expected, exists, callerStack);
         }
       },
       
@@ -313,7 +349,7 @@ const device = {
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to equal "${expectedValue}"`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveValue', expected, value);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveValue', expected, value, callerStack);
         }
       },
       
@@ -331,7 +367,7 @@ const device = {
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to have attribute "${attributeName}"="${expectedValue}"`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveAttribute', expected, value);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveAttribute', expected, value, callerStack);
         }
       },
       
@@ -349,7 +385,7 @@ const device = {
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to contain class "${className}"`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveClass', expected, classes);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveClass', expected, classes, callerStack);
         }
       },
       
@@ -368,7 +404,7 @@ const device = {
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to have count ${expectedCount}`;
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveCount', expected, actualCount);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveCount', expected, actualCount, callerStack);
         }
       }
     });
