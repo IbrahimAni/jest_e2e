@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 // E2E Setup - Main orchestrator for test configuration
 class E2EConfiguration {
   constructor(config = {}) {
@@ -9,6 +12,10 @@ class E2EConfiguration {
     // Store references for getters
     this._testData = null;
     this._deviceInstances = {};
+    this.beforeEachHooks = [];
+    this.afterEachHooks = [];
+    this.beforeAllHooks = [];
+    this.afterAllHooks = [];
     
     this.initialize();
   }
@@ -68,47 +75,47 @@ class E2EConfiguration {
 
   // Utility methods for test lifecycle
   beforeEach(fn) {
-    this.beforeEachHook = fn;
+    this.beforeEachHooks.push(fn);
     return this;
   }
 
   afterEach(fn) {
-    this.afterEachHook = fn;
+    this.afterEachHooks.push(fn);
     return this;
   }
 
   beforeAll(fn) {
-    this.beforeAllHook = fn;
+    this.beforeAllHooks.push(fn);
     return this;
   }
 
   afterAll(fn) {
-    this.afterAllHook = fn;
+    this.afterAllHooks.push(fn);
     return this;
   }
 
   // Execute lifecycle hooks
   async runBeforeEach() {
-    if (this.beforeEachHook) {
-      await this.beforeEachHook(this.getDevices(), this.getTestData());
+    for (const hook of this.beforeEachHooks) {
+      await hook(this.getDevices(), this.getTestData());
     }
   }
 
   async runAfterEach() {
-    if (this.afterEachHook) {
-      await this.afterEachHook(this.getDevices(), this.getTestData());
+    for (const hook of this.afterEachHooks) {
+      await hook(this.getDevices(), this.getTestData());
     }
   }
 
   async runBeforeAll() {
-    if (this.beforeAllHook) {
-      await this.beforeAllHook(this.getDevices(), this.getTestData());
+    for (const hook of this.beforeAllHooks) {
+      await hook(this.getDevices(), this.getTestData());
     }
   }
 
   async runAfterAll() {
-    if (this.afterAllHook) {
-      await this.afterAllHook(this.getDevices(), this.getTestData());
+    for (const hook of this.afterAllHooks) {
+      await hook(this.getDevices(), this.getTestData());
     }
   }
 
@@ -118,6 +125,10 @@ class E2EConfiguration {
     this.devices = {};
     this._testData = null;
     this._deviceInstances = {};
+    this.beforeEachHooks = [];
+    this.afterEachHooks = [];
+    this.beforeAllHooks = [];
+    this.afterAllHooks = [];
     this.initialized = false;
     return this;
   }
@@ -147,6 +158,69 @@ class E2EConfiguration {
 // Main setup function
 function E2ESetup(config = {}) {
   const e2eConfig = new E2EConfiguration(config);
+  const screenshotOnFailure = config.screenshotOnFailure !== false;
+  if (config.timeout) {
+    global.__JEST_E2E_TIMEOUT__ = config.timeout;
+  }
+  const parsedRetryEnv = Number.parseInt(process.env.JEST_E2E_RETRIES || '', 10);
+  const retries = typeof config.retries === 'number'
+    ? config.retries
+    : (Number.isNaN(parsedRetryEnv) ? 0 : parsedRetryEnv);
+  if (retries > 0 && global.jest && typeof global.jest.retryTimes === 'function') {
+    global.jest.retryTimes(retries, { logErrorsBeforeRetry: true });
+  }
+
+  if (screenshotOnFailure && typeof global.afterEach === 'function') {
+    global.afterEach(async () => {
+      const testState = expect.getState();
+      const hasFailed = typeof global.jasmine !== 'undefined' &&
+        global.jasmine.currentTest?.failedExpectations?.length > 0;
+
+      if (hasFailed && global.page) {
+        const screenshotDir = path.join(process.cwd(), '__screenshots__');
+        if (!fs.existsSync(screenshotDir)) {
+          fs.mkdirSync(screenshotDir, { recursive: true });
+        }
+
+        const safeName = (testState?.currentTestName || 'unknown-test')
+          .replace(/[^a-z0-9]/gi, '-')
+          .toLowerCase();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filePath = path.join(screenshotDir, `${safeName}-${timestamp}.png`);
+
+        try {
+          await global.page.screenshot({ path: filePath, fullPage: true });
+          console.log(`\n  Screenshot saved: ${filePath}`);
+        } catch (_) {
+          // Page may have crashed
+        }
+      }
+    });
+  }
+
+  if (typeof global.beforeEach === 'function') {
+    global.beforeEach(async () => {
+      await e2eConfig.runBeforeEach();
+    });
+  }
+
+  if (typeof global.afterEach === 'function') {
+    global.afterEach(async () => {
+      await e2eConfig.runAfterEach();
+    });
+  }
+
+  if (typeof global.beforeAll === 'function') {
+    global.beforeAll(async () => {
+      await e2eConfig.runBeforeAll();
+    });
+  }
+
+  if (typeof global.afterAll === 'function') {
+    global.afterAll(async () => {
+      await e2eConfig.runAfterAll();
+    });
+  }
   
   return {
     getTestData: () => e2eConfig.getTestData(),

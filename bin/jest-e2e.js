@@ -22,6 +22,7 @@ const options = {
   screenshot: false,
   silent: false,
   steps: true,
+  retries: 0,
   help: false,
   init: false
 };
@@ -50,6 +51,9 @@ for (let i = 0; i < args.length; i++) {
     i++; // Skip next argument
   } else if (arg === '--slowmo') {
     options.slowmo = parseInt(args[i + 1]) || 0;
+    i++; // Skip next argument
+  } else if (arg === '--retries') {
+    options.retries = parseInt(args[i + 1]) || 0;
     i++; // Skip next argument
   } else if (arg === '--screenshot') {
     options.screenshot = true;
@@ -171,6 +175,25 @@ if (options.init) {
       console.log(`📁 Created directory: ${dir}/`);
     }
   });
+
+  // Ensure screenshots folder is ignored by git
+  try {
+    const gitignorePath = path.join(projectRoot, '.gitignore');
+    const screenshotIgnoreEntry = '__screenshots__/';
+    if (existsSync(gitignorePath)) {
+      const currentGitignore = readFileSync(gitignorePath, 'utf8');
+      if (!currentGitignore.includes(screenshotIgnoreEntry)) {
+        const separator = currentGitignore.endsWith('\n') ? '' : '\n';
+        writeFileSync(gitignorePath, `${currentGitignore}${separator}${screenshotIgnoreEntry}\n`);
+        console.log('📄 Updated: .gitignore (added __screenshots__/)');
+      }
+    } else {
+      writeFileSync(gitignorePath, `${screenshotIgnoreEntry}\n`);
+      console.log('📄 Created: .gitignore');
+    }
+  } catch (error) {
+    console.error('❌ Error updating .gitignore:', error.message);
+  }
   
   // Copy files
   const filesToCopy = [
@@ -271,6 +294,7 @@ OPTIONS:
   --verbose, -v             Verbose output with detailed test information
   --timeout <ms>            Set custom timeout in milliseconds (default: 30000)
   --slowmo <ms>             Add delay between actions in milliseconds (default: 0)
+  --retries <n>             Retry failed tests n times (default: 0)
   --screenshot              Take screenshots on test failures
   --silent                  Run in silent mode (no step logging)
   --no-steps                Disable step-by-step logging only
@@ -284,6 +308,7 @@ EXAMPLES:
   jest-e2e login-success --repl               # Run test and keep browser open
   jest-e2e --debug --verbose                  # Run with debug and verbose output
   jest-e2e login-success --slowmo 100         # Run with 100ms delay between actions
+  jest-e2e --retries 2                        # Retry failed tests up to 2 times
   jest-e2e --watch                           # Run in watch mode
   jest-e2e --silent                          # Run without step logging
   jest-e2e login-success --no-steps          # Run specific test without step logging
@@ -320,6 +345,10 @@ if (options.repl) {
 if (options.slowmo > 0) {
   env.PUPPETEER_SLOWMO = options.slowmo.toString();
   env.CI = 'false'; // Force visible browser for slowmo
+}
+
+if (options.retries > 0) {
+  env.JEST_E2E_RETRIES = options.retries.toString();
 }
 
 // Configure screenshot on failure

@@ -76,20 +76,37 @@ class ChromeE2EApi {
     return null;
   }
 
-  async interceptNetwork(patterns = []) {
-    if (global.page) {
-      await global.page.setRequestInterception(true);
-      global.page.on('request', (request) => {
-        const url = request.url();
-        const shouldBlock = patterns.some(pattern => url.includes(pattern));
-        
-        if (shouldBlock) {
-          request.abort();
-        } else {
-          request.continue();
-        }
-      });
+  async interceptNetwork(rules = []) {
+    if (!global.page) return;
+
+    if (rules.length > 0 && typeof rules[0] === 'string') {
+      rules = rules.map((pattern) => ({ pattern, action: 'block' }));
     }
+
+    await global.page.setRequestInterception(true);
+    global.page.on('request', (request) => {
+      const url = request.url();
+
+      for (const rule of rules) {
+        if (url.includes(rule.pattern)) {
+          if (rule.action === 'block') {
+            return request.abort();
+          }
+          if (rule.action === 'mock' && rule.response) {
+            return request.respond({
+              status: rule.response.status || 200,
+              contentType: rule.response.contentType || 'application/json',
+              body: typeof rule.response.body === 'string'
+                ? rule.response.body
+                : JSON.stringify(rule.response.body),
+              headers: rule.response.headers || {},
+            });
+          }
+        }
+      }
+
+      request.continue();
+    });
   }
 
   async emulateDevice(device) {
@@ -119,7 +136,7 @@ class ChromeE2EApi {
   }
 
   // Chrome-specific wait methods
-  async waitForResponse(urlPattern, timeout = 30000) {
+  async waitForResponse(urlPattern, timeout = global.__JEST_E2E_TIMEOUT__ || 30000) {
     if (global.page) {
       return global.page.waitForResponse(
         response => response.url().includes(urlPattern),
@@ -128,7 +145,7 @@ class ChromeE2EApi {
     }
   }
 
-  async waitForRequest(urlPattern, timeout = 30000) {
+  async waitForRequest(urlPattern, timeout = global.__JEST_E2E_TIMEOUT__ || 30000) {
     if (global.page) {
       return global.page.waitForRequest(
         request => request.url().includes(urlPattern),
@@ -162,16 +179,17 @@ class ChromeE2EApi {
   }
 
   async simulateTouch() {
-    if (global.page) {
-      await global.page.evaluate(() => {
-        // Add touch simulation logic
-        const touchSupport = 'ontouchstart' in window;
-        if (!touchSupport) {
-          // Simulate touch events
-          window.TouchEvent = window.TouchEvent || class TouchEvent extends Event {};
-        }
-      });
-    }
+    if (!global.page) return;
+    const client = await global.page.target().createCDPSession();
+    await client.send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 5
+    });
+  }
+
+  async tap(selector) {
+    if (!global.page) return;
+    await global.page.tap(selector);
   }
 }
 

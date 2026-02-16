@@ -4,4 +4,5 @@ node_modules/
 *.pdf
 coverage/
 .nyc_output/
-screenshots/ 
+screenshots/
+__screenshots__/

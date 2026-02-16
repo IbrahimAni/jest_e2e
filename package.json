@@ -4,12 +4,14 @@
   "type": "module",
   "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
   "main": "index.js",
+  "types": "types/index.d.ts",
   "bin": {
     "jest-e2e": "./bin/jest-e2e.js"
   },
   "scripts": {
     "jest-e2e": "node bin/jest-e2e.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:framework": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --config jest.framework.config.cjs --no-coverage",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
     "test:debug": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --detectOpenHandles",
     "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
@@ -43,6 +45,7 @@
     "bin/",
     "config/",
     "databuilders/",
+    "types/",
     "__tests__/",
     "jest-puppeteer.config.js",
     "README.md",
