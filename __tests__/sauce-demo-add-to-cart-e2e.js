@@ -32,15 +32,8 @@ test("User can add a product to the cart from the product page", async () => {
   await device.expect("body").toContain("Grey jacket");
   await device.expect("body").toContain("£55.00");
 
-  // AUTO-WAIT VALIDATION: device.click auto-waits for "#add" to appear
-  // in the DOM before clicking — no manual waitFor("#add") needed
-  // Use evaluate to add to cart via Shopify AJAX API (avoids site's buggy
-  // jQuery onCartUpdate handler that throws on this demo site)
-  await device.evaluate(async () => {
-    const form = document.querySelector('form[action="/cart/add"]');
-    const formData = new FormData(form);
-    await fetch("/cart/add.js", { method: "POST", body: formData });
-  });
+  // Real user flow: click Add to Cart directly from the product page.
+  await device.click('#add');
 
   // Navigate to cart — networkidle0 ensures the page is fully loaded
   // before the subsequent auto-waiting assertions run
