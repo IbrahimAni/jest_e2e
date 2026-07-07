@@ -4,62 +4,61 @@ This package includes example tests that demonstrate various features and patter
 
 ## 📋 Available Examples
 
-### 1. `example-login-success-e2e.js`
+The examples run against **Tavola** (`https://sonic-yarrow-57gs.here.now`), a demo
+restaurant app instrumented with `data-testid` attributes — ideal for the
+framework's smart selectors.
+
+### 1. `tavola-navigation-e2e.js`
 **Demonstrates:**
-- Basic E2ESetup() usage with custom data builders
-- Form interaction (typing, clicking)
-- Content verification using expect assertions
-- Successful user flow testing
+- Basic E2ESetup() usage with a data builder
+- Smart selectors (data-testid shorthand and CSS attribute selectors)
+- `waitForUrl()` after clicking links
+- `toHaveCount()` / `toExist()` assertions on async content
 
 **Key Features:**
 ```javascript
-// Data builder usage
-const { getTestData, getDevices } = E2ESetup({
-  databuilder: AgentTestDataBuilder(),
-});
-
-// Device interactions
-await device.type("email-input", userEmail);
-await device.click("submit-button");
-
-// Content assertions
-await device.expect("body").toContain("Agent Dashboard");
+await device.click("cta-menu");                              // [data-testid="cta-menu"]
+await device.waitForUrl("/menu");
+await device.expect('[data-testid^="dish-card-"]').toHaveCount(12);
 ```
 
-### 2. `example-login-invalid-e2e.js`
+### 2. `tavola-cart-e2e.js`
 **Demonstrates:**
-- Error scenario testing
-- URL-based assertions
-- Hardcoded test data for specific cases
-- Validation of failed authentication
+- Reading dynamic content with `getText()`
+- Toast assertions with `toBeVisible()`
+- Negated assertions that wait for removal: `.not.toExist()` / `.not.toBeVisible()`
 
 **Key Features:**
 ```javascript
-// Error testing with invalid data
-await device.type("email-input", "invalid@example.com");
-await device.type("password-input", "wrongpassword");
-
-// URL verification
-const currentUrl = device.url();
-expect(currentUrl).toContain("/login");
+await device.click("cart-remove-1");
+await device.expect("cart-line-1").not.toExist();   // waits until removed
+await device.expect("cart-badge").not.toBeVisible();
 ```
 
-### 3. `example-form-validation-e2e.js`
+### 3. `tavola-reserve-fill-e2e.js`
 **Demonstrates:**
-- Fluent expect API usage
-- Element existence and visibility checking
-- Negative assertions with `.not` modifier
-- Form state validation
+- `fill()` for date/time inputs (keyboard typing is locale-flaky there)
+- `clear()` + `type()` for value replacement
+- Form validation error assertions
 
 **Key Features:**
 ```javascript
-// Element existence checks
-await device.expect("email-input").toExist();
-await device.expect("password-input").toBeVisible();
+await device.fill("reserve-date", "2026-07-10");    // direct value + input/change events
+await device.clear("reserve-name");
+await device.type("reserve-name", reservationName);
+```
 
-// Negative assertions
-await device.expect(".success-message").not.toExist();
-await device.expect("email-input").not.toHaveValue("wrong@email.com");
+### 4. `tavola-login-e2e.js`
+**Demonstrates:**
+- Error state testing (bad credentials) then recovery
+- `press()` — submitting a form with the Enter key
+- `getValue()` and client-side redirect handling
+
+**Key Features:**
+```javascript
+await device.press("login-password", "Enter");
+await device.waitForUrl("/account", { waitTimeout: 15000 });
+await device.expect("account-name").toContain("Emily Johnson");
 ```
 
 ## 🚀 Running Examples
@@ -71,19 +70,19 @@ npx jest-e2e
 
 ### Run Specific Example
 ```bash
-npx jest-e2e example-login-success
-npx jest-e2e example-form-validation
-npx jest-e2e example-login-invalid
+npx jest-e2e tavola-navigation
+npx jest-e2e tavola-cart
+npx jest-e2e tavola-login
 ```
 
 ### Run with Visible Browser
 ```bash
-npx jest-e2e example-login-success --useLocalBrowser true
+npx jest-e2e tavola-navigation --useLocalBrowser
 ```
 
 ### Debug Mode
 ```bash
-npx jest-e2e example-form-validation --debug --verbose
+npx jest-e2e tavola-cart --debug --verbose
 ```
 
 ## 📝 Copying Examples to Your Project
@@ -95,7 +94,7 @@ After installing the package, copy the examples to your project:
 cp -r node_modules/jest-e2e/__tests__/ ./examples/
 
 # Copy specific example
-cp node_modules/jest-e2e/__tests__/example-login-success-e2e.js ./__tests__/my-login-test-e2e.js
+cp node_modules/jest-e2e/__tests__/tavola-login-e2e.js ./__tests__/my-login-test-e2e.js
 ```
 
 ## 🔧 Customizing Examples
@@ -141,10 +140,11 @@ await device.expect(".logout-button").toExist();
 
 ## 📚 Learning Path
 
-1. **Start with `example-login-success-e2e.js`** - Learn basic setup and interactions
-2. **Study `example-form-validation-e2e.js`** - Understand the expect API
-3. **Review `example-login-invalid-e2e.js`** - Learn error handling patterns
-4. **Create your own tests** based on these patterns
+1. **Start with `tavola-navigation-e2e.js`** - Learn basic setup, smart selectors, and assertions
+2. **Study `tavola-cart-e2e.js`** - Understand dynamic content and negated assertions
+3. **Review `tavola-reserve-fill-e2e.js`** - Learn form filling (`fill`, `clear`, `type`)
+4. **Review `tavola-login-e2e.js`** - Learn error handling and keyboard interaction
+5. **Create your own tests** based on these patterns
 
 ## 🎯 Best Practices from Examples
 
@@ -205,7 +205,7 @@ await device.expect(selector).toHaveValue(expectedValue);
 - Verify your Node.js version (16+ required)
 
 ### Tests Fail with URL Errors
-- The examples use `anilathomes.com` - update URLs to your test site
+- The examples use the Tavola demo app (`sonic-yarrow-57gs.here.now`) — update URLs to your test site
 - Check network connectivity
 - Verify the target site is accessible
 

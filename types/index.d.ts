@@ -27,8 +27,14 @@ export interface CSSDevice {
 
 export interface Device {
   navigate(url: string, options?: object): Promise<unknown>;
+  goBack(options?: object): Promise<unknown>;
+  goForward(options?: object): Promise<unknown>;
+  refresh(options?: object): Promise<unknown>;
   click(selector: string, options?: DeviceOptions): Promise<void>;
   type(selector: string, text: string, options?: object): Promise<void>;
+  fill(selector: string, value: string | number, options?: DeviceOptions): Promise<void>;
+  clear(selector: string, options?: DeviceOptions): Promise<void>;
+  press(selector: string, key: string, options?: DeviceOptions): Promise<void>;
   select(selector: string, value: string | string[], options?: object): Promise<void>;
   hover(selector: string, options?: DeviceOptions): Promise<void>;
   waitFor(selector: string, options?: object): Promise<unknown>;
@@ -46,7 +52,7 @@ export interface Device {
   title(): Promise<string>;
   content(): Promise<string>;
   evaluate(fn: Function): Promise<unknown>;
-  screenshot(options?: object): Promise<Buffer>;
+  screenshot(options?: object): Promise<Uint8Array>;
   expect(selector: string, options?: DeviceOptions): DeviceAssertions;
   css: CSSDevice;
 }
@@ -85,6 +91,9 @@ export interface E2ESetupConfig {
   retries?: number;
   timeout?: number;
   screenshotOnFailure?: boolean;
+  smoothMode?: boolean;
+  actionDelay?: number;
+  disableAnimations?: boolean;
 }
 
 export interface E2EDebugInfo {

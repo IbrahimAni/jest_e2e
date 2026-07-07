@@ -1,6 +1,6 @@
 {
   "name": "jest-e2e",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "type": "module",
   "description": "A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI",
   "main": "index.js",
@@ -50,7 +50,8 @@
     "jest-puppeteer.config.js",
     "README.md",
     "CLI_README.md",
-    "EXAMPLES.md"
+    "EXAMPLES.md",
+    "CONTRIBUTING.md"
   ],
   "engines": {
     "node": ">=16.0.0"
@@ -71,7 +72,8 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/bin/"
+      "/bin/",
+      "/__tests__/framework/"
     ],
     "testTimeout": 30000,
     "setupFilesAfterEnv": [

@@ -5,6 +5,8 @@ export function createMockPage() {
   const mockElement = {
     isIntersectingViewport: jest.fn().mockResolvedValue(true),
     getAttribute: jest.fn(),
+    press: jest.fn().mockResolvedValue(null),
+    focus: jest.fn().mockResolvedValue(null),
     textContent: 'mock text',
     value: 'mock value',
     className: 'mock-class',
@@ -12,6 +14,9 @@ export function createMockPage() {
 
   return {
     goto: jest.fn().mockResolvedValue(null),
+    goBack: jest.fn().mockResolvedValue(null),
+    goForward: jest.fn().mockResolvedValue(null),
+    reload: jest.fn().mockResolvedValue(null),
     click: jest.fn().mockResolvedValue(null),
     type: jest.fn().mockResolvedValue(null),
     select: jest.fn().mockResolvedValue([]),
@@ -34,6 +39,7 @@ export function createMockPage() {
     metrics: jest.fn().mockResolvedValue({}),
     setRequestInterception: jest.fn().mockResolvedValue(null),
     on: jest.fn(),
+    off: jest.fn(),
     setCookie: jest.fn().mockResolvedValue(null),
     cookies: jest.fn().mockResolvedValue([]),
     deleteCookie: jest.fn().mockResolvedValue(null),

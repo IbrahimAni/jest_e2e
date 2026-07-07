@@ -7,5 +7,6 @@ export { createChromeE2EApi } from './config/chrome-api.js';
 export { baseDataBuilder } from './databuilders/base-data-builder.js';
 export { AgentTestDataBuilder } from './databuilders/agent-test-data-builder.js';
 
-// Version
-export const version = '1.0.2'; 
+// Version (kept in sync with package.json)
+import { createRequire } from 'module';
+export const version = createRequire(import.meta.url)('./package.json').version;

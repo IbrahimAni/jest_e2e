@@ -9,7 +9,7 @@ const originalTest = global.test;
 const originalIt = global.it;
 
 function createTestEnforcer(originalFn) {
-  return function (name, fn, timeout) {
+  const enforcer = function (name, fn, timeout) {
     // Get the current test file name from Jest's environment
     const testPath = expect.getState().testPath;
 
@@ -45,6 +45,9 @@ Each file should contain:
 
     return originalFn.call(this, name, fn, timeout);
   };
+  // Preserve test.only / test.skip / test.each / test.todo etc.
+  Object.assign(enforcer, originalFn);
+  return enforcer;
 }
 
 // Override both test and it functions

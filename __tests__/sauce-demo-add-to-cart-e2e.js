@@ -35,6 +35,11 @@ test("User can add a product to the cart from the product page", async () => {
   // Real user flow: click Add to Cart directly from the product page.
   await device.click('#add');
 
+  // Wait for the AJAX add-to-cart to complete: the cart counter in the header
+  // changes from "My Cart (0)" to "My Cart (1)" once the server has recorded
+  // the item — navigating before this completes cancels the request.
+  await device.waitForText('body', 'My Cart (1)');
+
   // Navigate to cart — networkidle0 ensures the page is fully loaded
   // before the subsequent auto-waiting assertions run
   await device.navigate(cartUrl, { waitUntil: "networkidle0" });

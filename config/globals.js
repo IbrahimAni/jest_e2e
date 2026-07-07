@@ -14,20 +14,27 @@ beforeAll(async () => {
 });
 
 // Auto-start step logger for tests
-const originalTest = global.test;
-global.test = function(name, fn, timeout) {
-  return originalTest(name, async (...args) => {
-    stepLogger.start(name);
-    try {
-      const result = await fn(...args);
-      stepLogger.success();
-      return result;
-    } catch (error) {
-      stepLogger.error(error.message);
-      throw error;
-    }
-  }, timeout);
+const wrapWithStepLogger = (originalFn) => {
+  const wrapped = function (name, fn, timeout) {
+    return originalFn(name, async (...args) => {
+      stepLogger.start(name);
+      try {
+        const result = await fn(...args);
+        stepLogger.success();
+        return result;
+      } catch (error) {
+        stepLogger.error(error.message);
+        throw error;
+      }
+    }, timeout);
+  };
+  // Preserve test.only / test.skip / test.each / test.todo etc.
+  Object.assign(wrapped, originalFn);
+  return wrapped;
 };
+
+global.test = wrapWithStepLogger(global.test);
+global.it = wrapWithStepLogger(global.it);
 
 export {
   E2ESetup,

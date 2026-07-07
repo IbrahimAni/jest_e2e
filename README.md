@@ -70,17 +70,26 @@ npx jest-e2e --repl
 Edit the example tests in `__tests__/`:
 ```javascript
 // __tests__/my-login-test-e2e.js
+import { AgentTestDataBuilder } from '../databuilders/agent-test-data-builder.js';
+
+const { getTestData, getDevices } = E2ESetup({
+  databuilder: AgentTestDataBuilder(),
+  devices: {
+    device: createChromeE2EApi({}),
+  },
+});
+
 test('User can login successfully', async () => {
-  const { device } = await E2ESetup();
+  const { device } = getDevices();
   const { userEmail, userPassword } = getTestData();
-  
+
   await device.navigate('https://your-app.com/login');  // 👈 Change URL
-  await device.fill('#email', userEmail);              // 👈 Update selectors
-  await device.fill('#password', userPassword);
+  await device.type('#email', userEmail);               // 👈 Update selectors
+  await device.type('#password', userPassword);
   await device.click('#login-button');
-  
-  await device.waitForSelector('.dashboard');
-  expect(await device.getInnerText('.welcome')).toContain('Welcome');
+
+  await device.waitFor('.dashboard');
+  await device.expect('.welcome').toContain('Welcome');
 });
 ```
 
@@ -91,14 +100,15 @@ jest-e2e [test_name] [options]
 ```
 
 ### Options
-- `--useLocalBrowser true` - Run with visible browser
+- `--useLocalBrowser [true]` - Run with visible browser
 - `--repl` - Keep browser open after test completion
 - `--debug` - Enable debug mode
 - `--watch` - Watch mode for development
 - `--verbose` - Detailed output
-- `--timeout <ms>` - Custom timeout (default: 30000)
+- `--timeout <ms>` - Per-test timeout and device auto-wait timeout
 - `--slowmo <ms>` - Add delay between actions
-- `--screenshot` - Take screenshots on failure
+- `--retries <n>` - Retry failed tests n times
+- `--screenshot` / `--no-screenshot` - Screenshots on failure (default: on)
 - `--silent` - No step logging
 - `--help` - Show help
 
@@ -138,27 +148,62 @@ const { userEmail, userPassword } = getTestData();
 ```
 
 ### Device API
-Built-in browser automation methods:
+Built-in browser automation methods. Selectors are "smart": a plain string like
+`'submit-btn'` targets `[data-testid="submit-btn"]`, while CSS selectors
+(`#id`, `.class`, `[attr]`, combinators, element names) pass through as-is.
+All interaction and assertion methods auto-wait for the element (default 5s,
+configurable via `E2ESetup({ timeout })` or a per-call `{ waitTimeout }`).
+
 ```javascript
 // Navigation
-await device.navigate(url);
+await device.navigate(url, options);        // page.goto
 await device.goBack();
+await device.goForward();
 await device.refresh();
 
-// Interactions
-await device.click(selector);
-await device.fill(selector, value);
-await device.select(selector, value);
+// Interactions (auto-wait until the element is visible and enabled)
+await device.click(selector, options);
+await device.type(selector, text, options); // keyboard typing (appends)
+await device.fill(selector, value);         // set value directly + fire input/change
+                                            // (best for date/time/number inputs)
+await device.clear(selector);               // empty an input/textarea
+await device.press(selector, 'Enter');      // press a keyboard key on an element
+await device.select(selector, value);       // choose <select> option(s)
 await device.hover(selector);
 
 // Waiting
-await device.waitForSelector(selector);
-await device.waitForTimeout(ms);
+await device.waitFor(selector, options);        // wait for element
+await device.waitForText(selector, text);       // wait until text appears
+await device.waitForUrl('/dashboard');          // wait for URL to contain pattern
+await device.waitForNavigation(options);
+await device.wait(ms);                          // plain sleep (avoid when possible)
 
-// Information
-const text = await device.getInnerText(selector);
+// Queries
+const el = await device.get(selector);          // ElementHandle
+const els = await device.getAll(selector);      // ElementHandle[]
+const text = await device.getText(selector);
 const value = await device.getValue(selector);
-const isVisible = await device.isVisible(selector);
+const exists = await device.exists(selector);   // no auto-wait
+const visible = await device.isVisible(selector); // no auto-wait
+
+// Page utilities
+device.url();
+await device.title();
+await device.content();
+await device.evaluate(fn);
+await device.screenshot(options);
+
+// Fluent assertions (auto-wait, with .not support)
+await device.expect(selector).toContain('text');
+await device.expect(selector).toHaveText('exact text');
+await device.expect(selector).toBeVisible();
+await device.expect(selector).toExist();
+await device.expect(selector).toHaveValue('value');
+await device.expect(selector).toHaveAttribute('name', 'value');
+await device.expect(selector).toHaveClass('class-name');
+await device.expect(selector).toHaveCount(3);
+await device.expect(selector).not.toExist();    // waits for removal
+await device.expect(selector).not.toBeVisible(); // waits until hidden/absent
 ```
 
 ### Data Builders
@@ -196,12 +241,14 @@ After running `npx jest-e2e` for the first time, your project will have:
 ```
 your-project/
 ├── __tests__/                     # Your E2E tests (auto-created with examples)
-│   ├── example-login-success-e2e.js
-│   ├── example-login-invalid-e2e.js
-│   └── example-form-validation-e2e.js
+│   ├── tavola-navigation-e2e.js
+│   ├── tavola-cart-e2e.js
+│   ├── tavola-reserve-fill-e2e.js
+│   └── tavola-login-e2e.js
 ├── databuilders/                  # Test data builders (auto-created)
 │   ├── base-data-builder.js
-│   └── agent-test-data-builder.js
+│   ├── agent-test-data-builder.js
+│   └── tavola-data-builder.js
 ├── config/                        # Configuration files (auto-created)
 │   └── test-setup.js              # Global Jest E2E setup
 ├── jest-puppeteer.config.js       # Puppeteer configuration (auto-created)
@@ -210,7 +257,7 @@ your-project/
 
 **Auto-Generated Files:**
 The framework automatically creates all necessary files:
-- **Example Tests**: Three example tests showing different patterns
+- **Example Tests**: Four example tests (against the Tavola demo app) showing different patterns
 - **Data Builders**: Base and example data builders for test data generation
 - **Configuration**: Jest setup and Puppeteer configuration
 - **Package Configuration**: Your package.json gets updated with proper ES module and Jest settings

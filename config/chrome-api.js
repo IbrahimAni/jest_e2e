@@ -12,8 +12,12 @@ class ChromeE2EApi {
       ...options
     };
     
-    // Inherit all base device methods
+    // Inherit base device methods, but never shadow the Chrome-specific
+    // overrides defined on this class (own properties would take precedence
+    // over prototype methods like navigate/type/screenshot).
+    const proto = Object.getPrototypeOf(this);
     Object.keys(baseDevice).forEach(method => {
+      if (typeof proto[method] === 'function') return;
       if (typeof baseDevice[method] === 'function') {
         this[method] = baseDevice[method].bind(baseDevice);
       } else {
@@ -34,10 +38,12 @@ class ChromeE2EApi {
 
   // Enhanced typing with Chrome-specific features
   async type(selector, text, options = {}) {
-    const chromeOptions = {
-      delay: this.options.slowMo || 0,
-      ...options
-    };
+    const chromeOptions = { ...options };
+    // Only apply slowMo as a typing delay when configured — passing delay: 0
+    // unconditionally would suppress smooth mode's action delay.
+    if (this.options.slowMo > 0 && typeof chromeOptions.delay !== 'number') {
+      chromeOptions.delay = this.options.slowMo;
+    }
     return baseDevice.type(selector, text, chromeOptions);
   }
 
@@ -46,10 +52,15 @@ class ChromeE2EApi {
     const chromeOptions = {
       type: 'png',
       fullPage: false,
-      clip: null,
-      quality: 90,
       ...options
     };
+    // Puppeteer rejects `quality` for png screenshots and `clip: null`.
+    if (chromeOptions.type !== 'png' && typeof chromeOptions.quality !== 'number') {
+      chromeOptions.quality = 90;
+    }
+    if (chromeOptions.clip == null) {
+      delete chromeOptions.clip;
+    }
     return baseDevice.screenshot(chromeOptions);
   }
 
@@ -83,8 +94,13 @@ class ChromeE2EApi {
       rules = rules.map((pattern) => ({ pattern, action: 'block' }));
     }
 
+    // Replace any handler from a previous call so rules don't stack
+    if (this._interceptHandler && typeof global.page.off === 'function') {
+      global.page.off('request', this._interceptHandler);
+    }
+
     await global.page.setRequestInterception(true);
-    global.page.on('request', (request) => {
+    this._interceptHandler = (request) => {
       const url = request.url();
 
       for (const rule of rules) {
@@ -106,7 +122,8 @@ class ChromeE2EApi {
       }
 
       request.continue();
-    });
+    };
+    global.page.on('request', this._interceptHandler);
   }
 
   async emulateDevice(device) {

@@ -78,14 +78,16 @@ npm run jest-e2e -- --no-steps
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--useLocalBrowser true` | Run with visible browser | `false` (headless) |
+| `--useLocalBrowser [true]` | Run with visible browser | `false` (headless) |
 | `--repl` | Keep browser open after test completion | `false` |
 | `--debug` | Enable debug mode with additional logging | `false` |
 | `--watch`, `-w` | Watch mode - re-run tests when files change | `false` |
 | `--verbose`, `-v` | Verbose output with detailed test information | `false` |
-| `--timeout <ms>` | Set custom timeout in milliseconds | `30000` |
+| `--timeout <ms>` | Per-test timeout and device auto-wait timeout | `30000` (test) / `5000` (auto-wait) |
 | `--slowmo <ms>` | Add delay between actions in milliseconds | `0` |
-| `--screenshot` | Take screenshots on test failures | `false` |
+| `--retries <n>` | Retry failed tests n times | `0` |
+| `--screenshot` | Take screenshots on test failures | `true` |
+| `--no-screenshot` | Disable screenshots on test failures | - |
 | `--silent` | Run in silent mode (no step logging) | `false` |
 | `--no-steps` | Disable step-by-step logging only | `false` |
 | `--help`, `-h` | Show help message | - |

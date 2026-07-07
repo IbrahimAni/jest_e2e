@@ -52,6 +52,9 @@ describe('enhanced error messages', () => {
   });
 
   test('assertion failure includes expected and actual values', async () => {
+    // Content assertions poll via waitForFunction; a rejection means the
+    // condition never held, then $eval supplies the actual value for the error
+    global.page.waitForFunction.mockRejectedValue(new Error('Timeout'));
     global.page.$eval.mockResolvedValue('Login page - Please enter your credentials');
     await expect(device.expect('body').toContain('Dashboard')).rejects.toThrow(
       /Assertion "toContain" failed/

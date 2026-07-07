@@ -158,9 +158,18 @@ class E2EConfiguration {
 // Main setup function
 function E2ESetup(config = {}) {
   const e2eConfig = new E2EConfiguration(config);
-  const screenshotOnFailure = config.screenshotOnFailure !== false;
-  if (config.timeout) {
-    global.__JEST_E2E_TIMEOUT__ = config.timeout;
+  // Screenshot on failure: config wins, then JEST_E2E_SCREENSHOT env (CLI
+  // --no-screenshot sets it to 'false'), default on.
+  const screenshotOnFailure = typeof config.screenshotOnFailure === 'boolean'
+    ? config.screenshotOnFailure
+    : process.env.JEST_E2E_SCREENSHOT !== 'false';
+  // Auto-wait timeout: config wins, then JEST_E2E_TIMEOUT env (CLI --timeout).
+  const parsedTimeoutEnv = Number.parseInt(process.env.JEST_E2E_TIMEOUT || '', 10);
+  const timeout = typeof config.timeout === 'number'
+    ? config.timeout
+    : (Number.isNaN(parsedTimeoutEnv) ? undefined : parsedTimeoutEnv);
+  if (typeof timeout === 'number') {
+    global.__JEST_E2E_TIMEOUT__ = timeout;
   }
   const parsedActionDelayEnv = Number.parseInt(process.env.JEST_E2E_ACTION_DELAY || '', 10);
   const smoothMode = typeof config.smoothMode === 'boolean'

@@ -167,6 +167,27 @@ const device = {
     return result;
   },
   
+  goBack: async (options = {}) => {
+    stepLogger.step('Going back');
+    const result = await page.goBack(options);
+    await disableAnimationsIfNeeded();
+    return result;
+  },
+
+  goForward: async (options = {}) => {
+    stepLogger.step('Going forward');
+    const result = await page.goForward(options);
+    await disableAnimationsIfNeeded();
+    return result;
+  },
+
+  refresh: async (options = {}) => {
+    stepLogger.step('Refreshing page');
+    const result = await page.reload(options);
+    await disableAnimationsIfNeeded();
+    return result;
+  },
+
   // Interactions - supports both data-testid values and CSS selectors
   click: async (selector, options = {}) => {
     const resolved = smartSelector(selector);
@@ -206,6 +227,83 @@ const device = {
       return result;
     } catch (error) {
       await enhanceError(error, selector, resolved, 'Type');
+    }
+  },
+
+  // Set a field's value directly (fires input/change events). Unlike type(),
+  // this replaces the current value and works with date/time/number inputs
+  // where keyboard typing is locale-dependent and flaky.
+  fill: async (selector, value, options = {}) => {
+    const resolved = smartSelector(selector);
+    const waitTimeout = resolveWaitTimeout(options);
+    const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
+    const displayValue = String(value).length > 20 ? String(value).substring(0, 20) + '...' : String(value);
+    stepLogger.step('Filling', `"${displaySelector}" with "${displayValue}"`);
+    try {
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
+      await page.$eval(resolved, (el, val) => {
+        el.focus();
+        if (el.isContentEditable) {
+          el.textContent = val;
+        } else {
+          const proto = el.tagName === 'SELECT'
+            ? window.HTMLSelectElement.prototype
+            : el.tagName === 'TEXTAREA'
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+          setter.call(el, val);
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, String(value));
+    } catch (error) {
+      await enhanceError(error, selector, resolved, 'Fill');
+    }
+  },
+
+  // Clear an input/textarea value
+  clear: async (selector, options = {}) => {
+    const resolved = smartSelector(selector);
+    const waitTimeout = resolveWaitTimeout(options);
+    const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
+    stepLogger.step('Clearing', `"${displaySelector}"`);
+    try {
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
+      await page.$eval(resolved, (el) => {
+        el.focus();
+        if (el.isContentEditable) {
+          el.textContent = '';
+        } else {
+          const proto = el.tagName === 'TEXTAREA'
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+          setter.call(el, '');
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    } catch (error) {
+      await enhanceError(error, selector, resolved, 'Clear');
+    }
+  },
+
+  // Press a keyboard key on an element (e.g. 'Enter', 'Escape', 'Tab')
+  press: async (selector, key, options = {}) => {
+    const resolved = smartSelector(selector);
+    const waitTimeout = resolveWaitTimeout(options);
+    const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
+    stepLogger.step('Pressing', `"${key}" on "${displaySelector}"`);
+    try {
+      await disableAnimationsIfNeeded();
+      await ensureActionable(resolved, waitTimeout);
+      const handle = await page.$(resolved);
+      await handle.press(key);
+    } catch (error) {
+      await enhanceError(error, selector, resolved, 'Press');
     }
   },
 
@@ -320,36 +418,65 @@ const device = {
     const waitTimeout = resolveWaitTimeout(options);
     const callerStack = new Error().stack;
     
-    const createAssertions = (negate = false) => ({
+    const createAssertions = (negate = false) => {
+      // Poll an in-page condition until it holds or the timeout elapses.
+      // Content assertions retry instead of reading the DOM once, so an
+      // assertion made right after an action tolerates async re-renders.
+      const waitForAssertion = (conditionFn, ...args) =>
+        page.waitForFunction(conditionFn, { timeout: waitTimeout }, resolvedSelector, negate, ...args);
+
+      const readActual = (extractFn, ...args) =>
+        page.$eval(resolvedSelector, extractFn, ...args).catch(() => undefined);
+
+      return {
       // Text content assertions
       toContain: async (expectedText) => {
         stepLogger.step('Verifying text', `"${selector}" ${negate ? 'does not contain' : 'contains'} "${expectedText}"`);
         let text;
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          text = await page.$eval(resolvedSelector, (el) => el.textContent);
-          const contains = text.includes(expectedText);
-          if (negate && contains) {
-            throw new Error(`Expected text to NOT contain "${expectedText}" but it was found`);
-          } else if (!negate && !contains) {
-            throw new Error(`Expected text to contain "${expectedText}" but it was not found`);
+          try {
+            await waitForAssertion(
+              (sel, neg, txt) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const contains = (el.textContent || '').includes(txt);
+                return neg ? !contains : contains;
+              },
+              expectedText
+            );
+          } catch (_) {
+            text = await readActual((el) => el.textContent);
+            throw new Error(negate
+              ? `Expected text to NOT contain "${expectedText}" but it was found`
+              : `Expected text to contain "${expectedText}" but it was not found`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to contain "${expectedText}"`;
           await enhanceAssertionError(error, selector, resolvedSelector, 'toContain', expected, text, callerStack);
         }
       },
-      
+
       toHaveText: async (expectedText) => {
         stepLogger.step('Verifying exact text', `"${selector}" ${negate ? 'does not equal' : 'equals'} "${expectedText}"`);
         let text;
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          text = await page.$eval(resolvedSelector, (el) => el.textContent.trim());
-          if (negate && text === expectedText) {
-            throw new Error(`Expected text to NOT equal "${expectedText}" but it did`);
-          } else if (!negate && text !== expectedText) {
-            throw new Error(`Expected text to equal "${expectedText}" but got different text`);
+          try {
+            await waitForAssertion(
+              (sel, neg, txt) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const matches = (el.textContent || '').trim() === txt;
+                return neg ? !matches : matches;
+              },
+              expectedText
+            );
+          } catch (_) {
+            text = await readActual((el) => el.textContent.trim());
+            throw new Error(negate
+              ? `Expected text to NOT equal "${expectedText}" but it did`
+              : `Expected text to equal "${expectedText}" but got different text`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to equal "${expectedText}"`;
@@ -360,44 +487,42 @@ const device = {
       // Visibility assertions
       toBeVisible: async () => {
         stepLogger.step('Verifying', `"${selector}" ${negate ? 'is not visible' : 'is visible'}`);
-        let isVisible;
+        let actual;
         try {
-          await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          const element = await page.$(resolvedSelector);
           if (negate) {
-            if (element) {
-              isVisible = await element.isIntersectingViewport();
-              expect(isVisible).toBe(false);
-            } else {
-              expect(element).toBe(null); // Element doesn't exist, so not visible
-            }
+            // Passes once the element is absent from the DOM or hidden
+            // (display:none / visibility:hidden). Auto-waits like the positive case.
+            await page.waitForSelector(resolvedSelector, { hidden: true, timeout: waitTimeout });
           } else {
-            expect(element).toBeTruthy();
-            isVisible = await element.isIntersectingViewport();
-            expect(isVisible).toBe(true);
+            await page.waitForSelector(resolvedSelector, { visible: true, timeout: waitTimeout });
           }
         } catch (error) {
+          actual = negate ? 'visible' : 'not visible (or missing)';
           const expected = negate ? 'to be not visible' : 'to be visible';
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toBeVisible', expected, isVisible, callerStack);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toBeVisible', expected, actual, callerStack);
         }
       },
-      
+
       // Existence assertions
       toExist: async () => {
         stepLogger.step('Verifying', `"${selector}" ${negate ? 'does not exist' : 'exists'}`);
-        let exists;
+        let actual;
         try {
-          await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          const element = await page.$(resolvedSelector);
-          exists = element !== null;
           if (negate) {
-            expect(element).toBe(null);
+            // Passes once the element is no longer in the DOM. Auto-waits so
+            // assertions right after an action (e.g. remove item) are stable.
+            await page.waitForFunction(
+              (sel) => !document.querySelector(sel),
+              { timeout: waitTimeout },
+              resolvedSelector
+            );
           } else {
-            expect(element).toBeTruthy();
+            await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
           }
         } catch (error) {
+          actual = negate ? 'element still exists' : 'element not found';
           const expected = negate ? 'to not exist' : 'to exist';
-          await enhanceAssertionError(error, selector, resolvedSelector, 'toExist', expected, exists, callerStack);
+          await enhanceAssertionError(error, selector, resolvedSelector, 'toExist', expected, actual, callerStack);
         }
       },
       
@@ -407,73 +532,109 @@ const device = {
         let value;
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          value = await page.$eval(resolvedSelector, (el) => el.value);
-          if (negate) {
-            expect(value).not.toBe(expectedValue);
-          } else {
-            expect(value).toBe(expectedValue);
+          try {
+            await waitForAssertion(
+              (sel, neg, expected) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const matches = el.value === expected;
+                return neg ? !matches : matches;
+              },
+              expectedValue
+            );
+          } catch (_) {
+            value = await readActual((el) => el.value);
+            throw new Error(negate
+              ? `Expected value to NOT equal "${expectedValue}" but it did`
+              : `Expected value to equal "${expectedValue}" but got "${value}"`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to equal "${expectedValue}"`;
           await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveValue', expected, value, callerStack);
         }
       },
-      
+
       // Attribute assertions
       toHaveAttribute: async (attributeName, expectedValue) => {
         stepLogger.step('Verifying attribute', `"${selector}" ${attributeName}=${expectedValue}`);
         let value;
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          value = await page.$eval(resolvedSelector, (el, attr) => el.getAttribute(attr), attributeName);
-          if (negate) {
-            expect(value).not.toBe(expectedValue);
-          } else {
-            expect(value).toBe(expectedValue);
+          try {
+            await waitForAssertion(
+              (sel, neg, attr, expected) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const matches = el.getAttribute(attr) === expected;
+                return neg ? !matches : matches;
+              },
+              attributeName,
+              expectedValue
+            );
+          } catch (_) {
+            value = await readActual((el, attr) => el.getAttribute(attr), attributeName);
+            throw new Error(negate
+              ? `Expected attribute "${attributeName}" to NOT equal "${expectedValue}" but it did`
+              : `Expected attribute "${attributeName}" to equal "${expectedValue}" but got "${value}"`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to have attribute "${attributeName}"="${expectedValue}"`;
           await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveAttribute', expected, value, callerStack);
         }
       },
-      
+
       // Class assertions
       toHaveClass: async (className) => {
         stepLogger.step('Verifying class', `"${selector}" has class "${className}"`);
         let classes;
         try {
           await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          classes = await page.$eval(resolvedSelector, (el) => el.className);
-          if (negate) {
-            expect(classes).not.toContain(className);
-          } else {
-            expect(classes).toContain(className);
+          try {
+            await waitForAssertion(
+              (sel, neg, cls) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const has = (el.className || '').includes(cls);
+                return neg ? !has : has;
+              },
+              className
+            );
+          } catch (_) {
+            classes = await readActual((el) => el.className);
+            throw new Error(negate
+              ? `Expected class list to NOT contain "${className}" but it did`
+              : `Expected class list to contain "${className}" but got "${classes}"`);
           }
         } catch (error) {
           const expected = `${negate ? 'not ' : ''}to contain class "${className}"`;
           await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveClass', expected, classes, callerStack);
         }
       },
-      
-      // Count assertions
+
+      // Count assertions — polls the count directly so expecting 0 works
       toHaveCount: async (expectedCount) => {
         stepLogger.step('Verifying count', `"${selector}" has ${expectedCount} elements`);
         let actualCount;
         try {
-          await page.waitForSelector(resolvedSelector, { timeout: waitTimeout });
-          const elements = await page.$$(resolvedSelector);
-          actualCount = elements.length;
-          if (negate) {
-            expect(elements.length).not.toBe(expectedCount);
-          } else {
-            expect(elements.length).toBe(expectedCount);
-          }
+          await waitForAssertion(
+            (sel, neg, expected) => {
+              const matches = document.querySelectorAll(sel).length === expected;
+              return neg ? !matches : matches;
+            },
+            expectedCount
+          );
         } catch (error) {
+          try {
+            actualCount = (await page.$$(resolvedSelector)).length;
+          } catch (_) {
+            // Page may not be available
+          }
           const expected = `${negate ? 'not ' : ''}to have count ${expectedCount}`;
           await enhanceAssertionError(error, selector, resolvedSelector, 'toHaveCount', expected, actualCount, callerStack);
         }
       }
-    });
+      };
+    };
 
     const assertions = createAssertions(false);
     

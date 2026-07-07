@@ -36,8 +36,13 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === 'init') {
     options.init = true;
   } else if (arg === '--useLocalBrowser') {
-    options.useLocalBrowser = args[i + 1] === 'true';
-    i++; // Skip next argument
+    // Value is optional: `--useLocalBrowser` alone means true
+    if (args[i + 1] === 'true' || args[i + 1] === 'false') {
+      options.useLocalBrowser = args[i + 1] === 'true';
+      i++; // Skip next argument
+    } else {
+      options.useLocalBrowser = true;
+    }
   } else if (arg === '--repl') {
     options.repl = true;
   } else if (arg === '--debug') {
@@ -48,6 +53,7 @@ for (let i = 0; i < args.length; i++) {
     options.verbose = true;
   } else if (arg === '--timeout') {
     options.timeout = parseInt(args[i + 1]) || 30000;
+    options.timeoutProvided = true;
     i++; // Skip next argument
   } else if (arg === '--slowmo') {
     options.slowmo = parseInt(args[i + 1]) || 0;
@@ -57,6 +63,9 @@ for (let i = 0; i < args.length; i++) {
     i++; // Skip next argument
   } else if (arg === '--screenshot') {
     options.screenshot = true;
+  } else if (arg === '--no-screenshot') {
+    options.screenshot = false;
+    options.noScreenshot = true;
   } else if (arg === '--silent') {
     options.silent = true;
     options.steps = false;
@@ -123,9 +132,11 @@ if (options.init) {
   // Add Jest configuration
   packageJson.jest = {
     "preset": "jest-puppeteer",
+    "testEnvironment": "jest-e2e/config/repl-puppeteer-environment.cjs",
+    "globalTeardown": "jest-e2e/config/repl-global-teardown.cjs",
     "testMatch": [
       "**/__tests__/**/*.test.js",
-      "**/?(*.)+(spec|test).js", 
+      "**/?(*.)+(spec|test).js",
       "**/*-e2e.js"
     ],
     "testPathIgnorePatterns": [
@@ -134,7 +145,7 @@ if (options.init) {
     "testTimeout": 30000,
     "globals": {
       "E2ESetup": "readonly",
-      "logStep": "readonly", 
+      "logStep": "readonly",
       "createChromeE2EApi": "readonly",
       "baseDataBuilder": "readonly"
     },
@@ -196,39 +207,40 @@ if (options.init) {
   }
   
   // Copy files
+  const exampleTests = [
+    'tavola-navigation-e2e.js',
+    'tavola-cart-e2e.js',
+    'tavola-reserve-fill-e2e.js',
+    'tavola-login-e2e.js',
+  ];
+  const exampleBuilders = [
+    'base-data-builder.js',
+    'agent-test-data-builder.js',
+    'tavola-data-builder.js',
+  ];
   const filesToCopy = [
     {
       source: path.join(packageRoot, 'jest-puppeteer.config.js'),
       target: path.join(projectRoot, 'jest-puppeteer.config.js')
     },
-    {
-      source: path.join(packageRoot, '__tests__', 'example-login-success-e2e.js'),
-      target: path.join(projectRoot, '__tests__', 'example-login-success-e2e.js')
-    },
-    {
-      source: path.join(packageRoot, '__tests__', 'example-login-invalid-e2e.js'),
-      target: path.join(projectRoot, '__tests__', 'example-login-invalid-e2e.js')
-    },
-    {
-      source: path.join(packageRoot, '__tests__', 'example-form-validation-e2e.js'),
-      target: path.join(projectRoot, '__tests__', 'example-form-validation-e2e.js')
-    },
-    {
-      source: path.join(packageRoot, 'databuilders', 'base-data-builder.js'),
-      target: path.join(projectRoot, 'databuilders', 'base-data-builder.js')
-    },
-    {
-      source: path.join(packageRoot, 'databuilders', 'agent-test-data-builder.js'),
-      target: path.join(projectRoot, 'databuilders', 'agent-test-data-builder.js')
-    }
+    ...exampleTests.map((file) => ({
+      source: path.join(packageRoot, '__tests__', file),
+      target: path.join(projectRoot, '__tests__', file)
+    })),
+    ...exampleBuilders.map((file) => ({
+      source: path.join(packageRoot, 'databuilders', file),
+      target: path.join(projectRoot, 'databuilders', file)
+    }))
   ];
-  
+
   filesToCopy.forEach(({ source, target }) => {
     try {
       if (existsSync(source)) {
         copyFileSync(source, target);
         const relativePath = path.relative(projectRoot, target);
         console.log(`📄 Copied: ${relativePath}`);
+      } else {
+        console.warn(`⚠️  Skipped (missing from package): ${path.basename(source)}`);
       }
     } catch (error) {
       console.error(`❌ Error copying ${path.basename(target)}:`, error.message);
@@ -239,10 +251,11 @@ if (options.init) {
   const testSetupContent = `// Jest E2E Test Setup
 // This file configures global variables for Jest E2E tests
 
-import { E2ESetup } from 'jest-e2e';
-import { logStep } from 'jest-e2e';
-import { createChromeE2EApi } from 'jest-e2e';
-import { baseDataBuilder } from 'jest-e2e';
+import { E2ESetup, logStep, createChromeE2EApi, baseDataBuilder } from 'jest-e2e';
+
+// Framework setup: step logging around tests, single tab, one test per file
+import 'jest-e2e/config/globals.js';
+import 'jest-e2e/config/single-test-enforcer.js';
 
 // Make Jest E2E functions globally available
 global.E2ESetup = E2ESetup;
@@ -287,15 +300,16 @@ ARGUMENTS:
   test_name                 Name of the test to run (optional, runs all if not specified)
 
 OPTIONS:
-  --useLocalBrowser true    Run with visible browser (default: headless)
+  --useLocalBrowser [true]  Run with visible browser (default: headless)
   --repl                    Keep browser open after test completion for debugging
   --debug                   Enable debug mode with additional logging
   --watch, -w               Watch mode - re-run tests when files change
   --verbose, -v             Verbose output with detailed test information
-  --timeout <ms>            Set custom timeout in milliseconds (default: 30000)
+  --timeout <ms>            Per-test timeout AND device auto-wait timeout in ms
   --slowmo <ms>             Add delay between actions in milliseconds (default: 0)
   --retries <n>             Retry failed tests n times (default: 0)
-  --screenshot              Take screenshots on test failures
+  --screenshot              Take screenshots on test failures (default: on)
+  --no-screenshot           Disable screenshots on test failures
   --silent                  Run in silent mode (no step logging)
   --no-steps                Disable step-by-step logging only
   --help, -h                Show this help message
@@ -360,8 +374,10 @@ if (options.retries > 0) {
   env.JEST_E2E_RETRIES = options.retries.toString();
 }
 
-// Configure screenshot on failure
-if (options.screenshot) {
+// Configure screenshot on failure (on by default; --no-screenshot disables)
+if (options.noScreenshot) {
+  env.JEST_E2E_SCREENSHOT = 'false';
+} else if (options.screenshot) {
   env.JEST_E2E_SCREENSHOT = 'true';
 }
 
@@ -375,8 +391,12 @@ if (options.silent) {
   env.JEST_FORCE_STEPS = 'true';
 }
 
-// Set timeout
-env.JEST_TIMEOUT = options.timeout.toString();
+// Set timeout only when explicitly requested: JEST_E2E_TIMEOUT feeds the
+// device auto-wait default (read by E2ESetup); --testTimeout overrides
+// Jest's per-test timeout.
+if (options.timeoutProvided) {
+  env.JEST_E2E_TIMEOUT = options.timeout.toString();
+}
 
 // Configure Jest command
 const jestArgs = [];
@@ -387,6 +407,11 @@ env.NODE_OPTIONS = '--experimental-vm-modules --no-warnings';
 // Add test name pattern if specified
 if (options.testName) {
   jestArgs.push(options.testName);
+}
+
+// Apply per-test timeout when explicitly requested
+if (options.timeoutProvided) {
+  jestArgs.push(`--testTimeout=${options.timeout}`);
 }
 
 // Add Jest options
