@@ -48,7 +48,12 @@ Run headed to see what the test sees:
 npx jest-e2e login --useLocalBrowser
 ```
 
-Headed mode automatically enables **smooth mode**: a short delay between actions and disabled CSS animations, so the run is watchable instead of a blur.
+Headed mode automatically enables **smooth mode**, which makes the run easy to follow:
+
+- An **orange cursor** overlay shows where the mouse is at all times
+- The cursor **glides** to each element instead of teleporting, and every click pulses a ripple
+- The target element flashes an **orange outline** just before it's acted on
+- Off-screen elements are scrolled to **smoothly**, and typing happens keystroke by keystroke
 
 Slow it down further when needed:
 

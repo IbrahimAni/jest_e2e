@@ -7,6 +7,7 @@ export function createMockPage() {
     getAttribute: jest.fn(),
     press: jest.fn().mockResolvedValue(null),
     focus: jest.fn().mockResolvedValue(null),
+    boundingBox: jest.fn().mockResolvedValue({ x: 100, y: 200, width: 80, height: 40 }),
     textContent: 'mock text',
     value: 'mock value',
     className: 'mock-class',
@@ -45,6 +46,12 @@ export function createMockPage() {
     deleteCookie: jest.fn().mockResolvedValue(null),
     setViewport: jest.fn().mockResolvedValue(null),
     emulate: jest.fn().mockResolvedValue(null),
+    mouse: {
+      move: jest.fn().mockResolvedValue(null),
+      click: jest.fn().mockResolvedValue(null),
+      down: jest.fn().mockResolvedValue(null),
+      up: jest.fn().mockResolvedValue(null),
+    },
     target: jest.fn().mockReturnValue({
       createCDPSession: jest.fn().mockResolvedValue({
         send: jest.fn().mockResolvedValue(null),

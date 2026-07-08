@@ -55,11 +55,128 @@ const disableAnimationsIfNeeded = async () => {
   });
 };
 
+// Visible cursor overlay for smooth mode: an orange dot that follows the real
+// mouse (via mousemove events) and pulses a ripple on every mousedown. Uses
+// element.animate() so the disable-animations stylesheet can't zero it out.
+const ensureCursorOverlay = async () => {
+  if (!isSmoothModeEnabled()) return;
+  try {
+    await page.evaluate(() => {
+      const id = '__jest_e2e_cursor__';
+      if (document.getElementById(id)) return;
+
+      const cursor = document.createElement('div');
+      cursor.id = id;
+      cursor.style.cssText = [
+        'position: fixed',
+        'top: 0',
+        'left: 0',
+        'width: 18px',
+        'height: 18px',
+        'border-radius: 50%',
+        'background: rgba(255, 107, 0, 0.45)',
+        'border: 2.5px solid #ff6b00',
+        'box-shadow: 0 0 6px rgba(255, 107, 0, 0.7)',
+        'pointer-events: none',
+        'z-index: 2147483647',
+        'opacity: 0',
+        'transform: translate(-50%, -50%)',
+        'will-change: left, top',
+      ].join(';');
+      document.documentElement.appendChild(cursor);
+
+      window.addEventListener('mousemove', (e) => {
+        cursor.style.opacity = '1';
+        cursor.style.left = `${e.clientX}px`;
+        cursor.style.top = `${e.clientY}px`;
+      }, { capture: true, passive: true });
+
+      window.addEventListener('mousedown', (e) => {
+        const ripple = document.createElement('div');
+        ripple.style.cssText = [
+          'position: fixed',
+          `left: ${e.clientX}px`,
+          `top: ${e.clientY}px`,
+          'width: 14px',
+          'height: 14px',
+          'border-radius: 50%',
+          'border: 3px solid #ff6b00',
+          'pointer-events: none',
+          'z-index: 2147483646',
+          'transform: translate(-50%, -50%)',
+        ].join(';');
+        document.documentElement.appendChild(ripple);
+        ripple.animate(
+          [
+            { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+            { transform: 'translate(-50%, -50%) scale(3.2)', opacity: 0 },
+          ],
+          { duration: 420, easing: 'ease-out' }
+        ).onfinish = () => ripple.remove();
+      }, { capture: true, passive: true });
+    });
+  } catch (_) {
+    // Overlay is cosmetic — never fail an action over it
+  }
+};
+
+// Briefly flash an orange outline around the action target so the viewer's
+// eye lands on the right element before the interaction happens.
+const highlightTarget = async (resolvedSelector) => {
+  if (!isSmoothModeEnabled()) return;
+  try {
+    await page.$eval(resolvedSelector, (el) => {
+      el.animate(
+        [
+          { boxShadow: '0 0 0 4px rgba(255, 107, 0, 0.85)' },
+          { boxShadow: '0 0 0 4px rgba(255, 107, 0, 0)' },
+        ],
+        { duration: 550, easing: 'ease-out' }
+      );
+    });
+  } catch (_) {
+    // Cosmetic only
+  }
+};
+
+// Glide the mouse to the element's center with real mousemove events (the
+// cursor overlay follows them) and return the target point. Falls back to
+// null if the element has no box (e.g. detached mid-animation).
+const smoothPointerTo = async (resolvedSelector) => {
+  const handle = await page.$(resolvedSelector);
+  if (!handle) return null;
+  const box = await handle.boundingBox();
+  if (!box) return null;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y, { steps: 22 });
+  return { x, y };
+};
+
+const smoothPause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const ensureActionable = async (resolvedSelector, timeout) => {
   await page.waitForSelector(resolvedSelector, { timeout, visible: true });
-  await page.$eval(resolvedSelector, (el) => {
-    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' });
-  });
+  const smooth = isSmoothModeEnabled();
+  await page.$eval(resolvedSelector, (el, behavior) => {
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior });
+  }, smooth ? 'smooth' : 'auto');
+  if (smooth) {
+    // Let the smooth scroll settle before measuring the element's position
+    await page.waitForFunction(
+      (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        const key = `${Math.round(rect.x)},${Math.round(rect.y)}`;
+        if (el.__jestE2eLastPos === key) return true;
+        el.__jestE2eLastPos = key;
+        return false;
+      },
+      { timeout: 2000, polling: 120 },
+      resolvedSelector
+    ).catch(() => {});
+  }
   await page.waitForFunction(
     (sel) => {
       const el = document.querySelector(sel);
@@ -164,6 +281,7 @@ const device = {
     stepLogger.step('Navigating', `to ${url}`);
     const result = await page.goto(url, options);
     await disableAnimationsIfNeeded();
+    await ensureCursorOverlay();
     return result;
   },
   
@@ -202,6 +320,24 @@ const device = {
       if (actionDelay > 0 && typeof clickOptions.delay !== 'number') {
         clickOptions.delay = actionDelay;
       }
+      if (isSmoothModeEnabled()) {
+        // Visible flow: highlight the target, glide the cursor to it, then
+        // click through the mouse so the overlay ripple fires.
+        await ensureCursorOverlay();
+        await highlightTarget(resolved);
+        const point = await smoothPointerTo(resolved);
+        if (point) {
+          await smoothPause(120);
+          await page.mouse.click(point.x, point.y, {
+            delay: typeof clickOptions.delay === 'number' ? clickOptions.delay : 40,
+            button: clickOptions.button,
+            clickCount: clickOptions.count,
+          });
+          await smoothPause(80);
+          return;
+        }
+        // Element had no box (mid-transition) — fall through to normal click
+      }
       const result = await page.click(resolved, clickOptions);
       return result;
     } catch (error) {
@@ -223,6 +359,17 @@ const device = {
       if (actionDelay > 0 && typeof typeOptions.delay !== 'number') {
         typeOptions.delay = actionDelay;
       }
+      if (isSmoothModeEnabled()) {
+        // Glide to the field and click it first so the viewer sees where the
+        // text is about to go, then type with the per-keystroke delay.
+        await ensureCursorOverlay();
+        await highlightTarget(resolved);
+        const point = await smoothPointerTo(resolved);
+        if (point) {
+          await page.mouse.click(point.x, point.y, { delay: 30 });
+          await smoothPause(100);
+        }
+      }
       const result = await page.type(resolved, text, typeOptions);
       return result;
     } catch (error) {
@@ -242,6 +389,12 @@ const device = {
     try {
       await disableAnimationsIfNeeded();
       await ensureActionable(resolved, waitTimeout);
+      if (isSmoothModeEnabled()) {
+        await ensureCursorOverlay();
+        await highlightTarget(resolved);
+        const point = await smoothPointerTo(resolved);
+        if (point) await smoothPause(120);
+      }
       await page.$eval(resolved, (el, val) => {
         el.focus();
         if (el.isContentEditable) {
@@ -331,6 +484,14 @@ const device = {
     try {
       await disableAnimationsIfNeeded();
       await ensureActionable(resolved, waitTimeout);
+      if (isSmoothModeEnabled()) {
+        await ensureCursorOverlay();
+        const point = await smoothPointerTo(resolved);
+        if (point) {
+          await smoothPause(80);
+          return;
+        }
+      }
       const result = await page.hover(resolved);
       return result;
     } catch (error) {
