@@ -44,7 +44,8 @@ describe('device smooth mode', () => {
     await device.click('submit-btn');
 
     // Element box is x:100 y:200 w:80 h:40 → center (140, 220)
-    expect(global.page.mouse.move).toHaveBeenCalledWith(140, 220, { steps: 22 });
+    expect(global.page.mouse.move.mock.calls.length).toBeGreaterThan(2);
+    expect(global.page.mouse.move).toHaveBeenLastCalledWith(140, 220);
     expect(global.page.mouse.click).toHaveBeenCalledWith(140, 220,
       expect.objectContaining({ delay: 40 })
     );
@@ -106,7 +107,8 @@ describe('device smooth mode', () => {
   test('hover glides the mouse in smooth mode', async () => {
     global.__JEST_E2E_SMOOTH__ = true;
     await device.hover('menu-item');
-    expect(global.page.mouse.move).toHaveBeenCalledWith(140, 220, { steps: 22 });
+    expect(global.page.mouse.move.mock.calls.length).toBeGreaterThan(2);
+    expect(global.page.mouse.move).toHaveBeenLastCalledWith(140, 220);
     expect(global.page.hover).not.toHaveBeenCalled();
   });
 

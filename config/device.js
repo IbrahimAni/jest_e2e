@@ -34,6 +34,7 @@ const getActionDelay = (options = {}) => {
   if (typeof global.__JEST_E2E_ACTION_DELAY__ === 'number') return global.__JEST_E2E_ACTION_DELAY__;
   return isSmoothModeEnabled() ? 30 : 0;
 };
+let lastPointerPosition = null;
 
 const disableAnimationsIfNeeded = async () => {
   if (!shouldDisableAnimations()) return;
@@ -139,21 +140,69 @@ const highlightTarget = async (resolvedSelector) => {
   }
 };
 
-// Glide the mouse to the element's center with real mousemove events (the
+const smoothPause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getViewportCenter = async () => {
+  try {
+    const center = await page.evaluate(() => ({
+      x: Math.round(window.innerWidth / 2),
+      y: Math.round(window.innerHeight / 2),
+    }));
+    if (center && typeof center.x === 'number' && typeof center.y === 'number') {
+      return center;
+    }
+  } catch (_) {
+    // Fall back below if the page is not ready for evaluate.
+  }
+  return { x: 0, y: 0 };
+};
+
+const getPointerStepCount = (from, to) => {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  return Math.max(12, Math.min(32, Math.round(distance / 35)));
+};
+
+const getPointerStepDelay = (actionDelay) => {
+  const delay = typeof actionDelay === 'number' && actionDelay > 0 ? actionDelay : 30;
+  return Math.max(4, Math.min(12, Math.round(delay / 12)));
+};
+
+const glideMouse = async (from, to, actionDelay) => {
+  const steps = getPointerStepCount(from, to);
+  const stepDelay = getPointerStepDelay(actionDelay);
+
+  for (let step = 1; step <= steps; step++) {
+    const progress = step / steps;
+    const x = step === steps ? to.x : from.x + (to.x - from.x) * progress;
+    const y = step === steps ? to.y : from.y + (to.y - from.y) * progress;
+    await page.mouse.move(x, y);
+    if (step < steps) {
+      await smoothPause(stepDelay);
+    }
+  }
+
+  lastPointerPosition = to;
+};
+
+// Glide the mouse to the element's center with paced mousemove events (the
 // cursor overlay follows them) and return the target point. Falls back to
 // null if the element has no box (e.g. detached mid-animation).
-const smoothPointerTo = async (resolvedSelector) => {
+const smoothPointerTo = async (resolvedSelector, actionDelay = getActionDelay()) => {
   const handle = await page.$(resolvedSelector);
   if (!handle) return null;
   const box = await handle.boundingBox();
   if (!box) return null;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y, { steps: 22 });
-  return { x, y };
+  const target = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  };
+  const from = lastPointerPosition || await getViewportCenter();
+  if (!lastPointerPosition) {
+    await page.mouse.move(from.x, from.y);
+  }
+  await glideMouse(from, target, actionDelay);
+  return target;
 };
-
-const smoothPause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const ensureActionable = async (resolvedSelector, timeout) => {
   await page.waitForSelector(resolvedSelector, { timeout, visible: true });
@@ -325,7 +374,7 @@ const device = {
         // click through the mouse so the overlay ripple fires.
         await ensureCursorOverlay();
         await highlightTarget(resolved);
-        const point = await smoothPointerTo(resolved);
+        const point = await smoothPointerTo(resolved, actionDelay);
         if (point) {
           await smoothPause(120);
           await page.mouse.click(point.x, point.y, {
@@ -364,7 +413,7 @@ const device = {
         // text is about to go, then type with the per-keystroke delay.
         await ensureCursorOverlay();
         await highlightTarget(resolved);
-        const point = await smoothPointerTo(resolved);
+        const point = await smoothPointerTo(resolved, actionDelay);
         if (point) {
           await page.mouse.click(point.x, point.y, { delay: 30 });
           await smoothPause(100);
@@ -383,6 +432,7 @@ const device = {
   fill: async (selector, value, options = {}) => {
     const resolved = smartSelector(selector);
     const waitTimeout = resolveWaitTimeout(options);
+    const actionDelay = getActionDelay(options);
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     const displayValue = String(value).length > 20 ? String(value).substring(0, 20) + '...' : String(value);
     stepLogger.step('Filling', `"${displaySelector}" with "${displayValue}"`);
@@ -392,7 +442,7 @@ const device = {
       if (isSmoothModeEnabled()) {
         await ensureCursorOverlay();
         await highlightTarget(resolved);
-        const point = await smoothPointerTo(resolved);
+        const point = await smoothPointerTo(resolved, actionDelay);
         if (point) await smoothPause(120);
       }
       await page.$eval(resolved, (el, val) => {
@@ -479,6 +529,7 @@ const device = {
   hover: async (selector, options = {}) => {
     const resolved = smartSelector(selector);
     const waitTimeout = resolveWaitTimeout(options);
+    const actionDelay = getActionDelay(options);
     const displaySelector = selector.length > 30 ? selector.substring(0, 30) + '...' : selector;
     stepLogger.step('Hovering', `"${displaySelector}"`);
     try {
@@ -486,7 +537,7 @@ const device = {
       await ensureActionable(resolved, waitTimeout);
       if (isSmoothModeEnabled()) {
         await ensureCursorOverlay();
-        const point = await smoothPointerTo(resolved);
+        const point = await smoothPointerTo(resolved, actionDelay);
         if (point) {
           await smoothPause(80);
           return;

@@ -5,7 +5,7 @@ export default {
     // Headless mode controlled by CLI
     headless: isHeadless,
     
-    // Slowmo controlled by CLI
+    // Optional low-level Puppeteer slowMo. CLI --slowmo uses framework action delay instead.
     slowMo: process.env.PUPPETEER_SLOWMO ? parseInt(process.env.PUPPETEER_SLOWMO) : (process.env.NODE_ENV === 'development' ? 50 : 0),
     
     devtools: process.env.DEBUG === 'true',

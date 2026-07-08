@@ -10,6 +10,9 @@ const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 const args = process.argv.slice(2);
+const DEFAULT_TEST_TIMEOUT = 30000;
+const VISUAL_MODE_TEST_TIMEOUT = 120000;
+
 const options = {
   testName: '',
   useLocalBrowser: false,
@@ -17,7 +20,7 @@ const options = {
   debug: false,
   watch: false,
   verbose: false,
-  timeout: 30000,
+  timeout: DEFAULT_TEST_TIMEOUT,
   slowmo: 0,
   screenshot: false,
   silent: false,
@@ -368,11 +371,18 @@ if (options.repl) {
 
 // Configure slowmo
 if (options.slowmo > 0) {
-  env.PUPPETEER_SLOWMO = options.slowmo.toString();
+  // Slow motion is handled by the framework action layer. Puppeteer's launch
+  // slowMo applies to every protocol command, including each cursor step, which
+  // makes headed runs crawl and can trip Jest's timeout before the flow finishes.
   env.CI = 'false'; // Force visible browser for slowmo
 }
 
-if (options.useLocalBrowser || options.repl || options.slowmo > 0) {
+const isVisualMode = options.useLocalBrowser || options.repl || options.slowmo > 0;
+const effectiveTestTimeout = options.timeoutProvided
+  ? options.timeout
+  : (isVisualMode ? Math.max(DEFAULT_TEST_TIMEOUT, VISUAL_MODE_TEST_TIMEOUT) : undefined);
+
+if (isVisualMode) {
   env.JEST_E2E_SMOOTH = 'true';
   env.JEST_E2E_DISABLE_ANIMATIONS = 'true';
   if (!env.JEST_E2E_ACTION_DELAY) {
@@ -396,7 +406,7 @@ if (options.silent) {
   env.JEST_SILENT = 'true';
 } else if (!options.steps) {
   env.JEST_NO_STEPS = 'true';
-} else if (options.useLocalBrowser || options.repl || options.slowmo > 0) {
+} else if (isVisualMode) {
   // Force enable steps for visible browser modes
   env.JEST_FORCE_STEPS = 'true';
 }
@@ -419,9 +429,10 @@ if (options.testName) {
   jestArgs.push(options.testName);
 }
 
-// Apply per-test timeout when explicitly requested
-if (options.timeoutProvided) {
-  jestArgs.push(`--testTimeout=${options.timeout}`);
+// Apply per-test timeout when explicitly requested, and give headed/smooth runs
+// a larger default because visible cursor movement intentionally takes longer.
+if (typeof effectiveTestTimeout === 'number') {
+  jestArgs.push(`--testTimeout=${effectiveTestTimeout}`);
 }
 
 // Add Jest options
@@ -430,7 +441,7 @@ if (options.watch) {
 }
 
 // In visible/repl/slowmo mode, force one worker so only one browser is launched.
-if (options.useLocalBrowser || options.repl || options.slowmo > 0) {
+if (isVisualMode) {
   jestArgs.push('--runInBand');
 }
 
@@ -457,7 +468,7 @@ if (!options.verbose) {
 console.log(`🧪 Jest E2E Test Runner`);
 // console.log(`📁 Running from: ${process.cwd()}`);
 console.log(`🎯 Running test: ${options.testName || 'all tests'}`);
-console.log(`🖥️  Browser mode: ${options.useLocalBrowser ? 'visible' : 'headless'}`);
+console.log(`🖥️  Browser mode: ${isVisualMode ? 'visible' : 'headless'}`);
 if (options.repl) console.log(`🔧 REPL mode: enabled (browser will stay open)`);
 if (options.slowmo > 0) console.log(`⏱️  Slow motion: ${options.slowmo}ms`);
 // console.log(`⏰ Timeout: ${options.timeout}ms`);
