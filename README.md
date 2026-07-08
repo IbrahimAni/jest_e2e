@@ -2,7 +2,7 @@
 
 A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI.
 
-📖 **[Full documentation →](https://ibrahimani.github.io/jest_e2e/)**
+📖 **[Full documentation →](https://genfixs-limited.github.io/jest_e2e/)**
 
 ## 🚀 Features
 
@@ -495,7 +495,7 @@ MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
-- [GitHub Issues](https://github.com/IbrahimAni/jest_e2e/issues)
+- [GitHub Issues](https://github.com/genfixs-limited/jest_e2e/issues)
 - [Documentation](https://github.com/yourusername/jest-e2e#readme)
 - [CLI Reference](./CLI_README.md)
 - [Example Tests Guide](./EXAMPLES.md)

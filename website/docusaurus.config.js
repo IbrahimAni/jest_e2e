@@ -13,10 +13,10 @@ const config = {
     v4: true,
   },
 
-  url: 'https://ibrahimani.github.io',
+  url: 'https://genfixs-limited.github.io',
   baseUrl: '/jest_e2e/',
 
-  organizationName: 'IbrahimAni',
+  organizationName: 'genfixs-limited',
   projectName: 'jest_e2e',
   trailingSlash: false,
 
@@ -35,7 +35,7 @@ const config = {
         docs: {
           routeBasePath: '/', // docs-only mode: docs are the site root
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/IbrahimAni/jest_e2e/tree/main/website/',
+          editUrl: 'https://github.com/genfixs-limited/jest_e2e/tree/main/website/',
         },
         blog: false,
         theme: {
@@ -71,7 +71,7 @@ const config = {
             position: 'right',
           },
           {
-            href: 'https://github.com/IbrahimAni/jest_e2e',
+            href: 'https://github.com/genfixs-limited/jest_e2e',
             label: 'GitHub',
             position: 'right',
           },
@@ -91,7 +91,7 @@ const config = {
           {
             title: 'More',
             items: [
-              { label: 'GitHub', href: 'https://github.com/IbrahimAni/jest_e2e' },
+              { label: 'GitHub', href: 'https://github.com/genfixs-limited/jest_e2e' },
               { label: 'npm', href: 'https://www.npmjs.com/package/jest-e2e' },
             ],
           },
