@@ -29,12 +29,20 @@ class genTavolaDataBuilder extends BaseDataBuilder {
     this.invalidUsername = "not-a-user";
     this.invalidPassword = "wrong-password";
 
+    this.checkoutUrl = `${this.baseUrl}/checkout/`;
+
     // Reservation details — date must be in the future
     const future = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     this.reservationName = "Framework Smoke Test";
     this.reservationEmail = "smoke-test@example.com";
     this.reservationDate = future.toISOString().slice(0, 10);
     this.reservationTime = "19:00";
+
+    // Checkout / delivery details. name + email are pre-filled from the
+    // signed-in account; phone + address are entered at checkout.
+    this.checkoutEmail = "emily.johnson@x.dummyjson.com";
+    this.deliveryPhone = "5550142200";
+    this.deliveryAddress = "12 Orchard Lane";
 
     return this;
   }

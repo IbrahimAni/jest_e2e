@@ -124,3 +124,42 @@ test('User can add a dish to the cart, change quantity, and remove it', async ()
 ```
 
 Notice what's *not* here: no `sleep()`, no manual `waitForSelector`, no try/catch. Auto-waiting handles the timing; [enhanced errors](/guide/debugging#reading-failures) handle the failures.
+
+## A multi-page journey
+
+A single test can span an entire flow across many pages. This example — one of the examples shipped with the framework — signs in, carries a cart across the authentication boundary, and drives all the way to a ready-to-pay checkout:
+
+```javascript title="__tests__/tavola-checkout-journey-e2e.js"
+test("Guest adds a dish, signs in, and reaches a ready-to-pay checkout", async () => {
+  const { device } = getDevices();
+  const { menuUrl, loginUrl, cartUrl, checkoutUrl, username, password,
+          accountName, checkoutEmail, deliveryPhone, deliveryAddress } = getTestData();
+
+  // Add a dish as a guest
+  await device.navigate(menuUrl, { waitUntil: "networkidle0" });
+  const dishName = (await device.getText("dish-name-1")).trim();
+  await device.click("add-to-cart-1");
+  await device.expect("cart-badge", { waitTimeout: 15000 }).toBeVisible();
+
+  // Sign in — the guest cart merges into the account
+  await device.navigate(loginUrl, { waitUntil: "networkidle0" });
+  await device.type("login-username", username);
+  await device.type("login-password", password);
+  await device.click("login-submit");
+  await device.waitForUrl("/account", { waitTimeout: 15000 });
+
+  // The merged cart still holds the dish
+  await device.navigate(cartUrl, { waitUntil: "networkidle0" });
+  await device.expect("cart-line-1").toExist();
+
+  // Checkout is pre-filled from the account; add delivery details
+  await device.navigate(checkoutUrl, { waitUntil: "networkidle0" });
+  await device.expect("input-name").toHaveValue(accountName);
+  await device.fill("input-phone", deliveryPhone);
+  await device.fill("input-address", deliveryAddress);
+  await device.expect("place-order").toContain("Place order");
+  await device.click("place-order");
+});
+```
+
+The whole flow lives in one file with one `test()` — the framework's one-test-per-file rule keeps each journey self-contained and independently runnable.

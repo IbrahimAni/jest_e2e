@@ -225,6 +225,7 @@ if (options.init) {
     'tavola-cart-e2e.js',
     'tavola-reserve-fill-e2e.js',
     'tavola-login-e2e.js',
+    'tavola-checkout-journey-e2e.js',
   ];
   const exampleBuilders = [
     'base-data-builder.js',
