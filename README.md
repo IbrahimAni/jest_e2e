@@ -2,6 +2,8 @@
 
 A powerful Jest + Puppeteer E2E testing framework with built-in device automation, data builders, and CLI.
 
+📖 **[Full documentation →](https://ibrahimani.github.io/jest_e2e/)**
+
 ## 🚀 Features
 
 - **Easy Setup**: Get started with E2E testing in minutes
