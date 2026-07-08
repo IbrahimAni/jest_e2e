@@ -83,7 +83,17 @@ const hasConfig = existsSync(path.join(projectRoot, 'jest-puppeteer.config.js'))
 const needsInit = !hasTestsDir && !hasConfig && !options.init && !options.help;
 
 if (needsInit) {
-  console.log('🔍 No Jest E2E configuration detected.');
+  // A specific test was requested but there's no project here — almost
+  // certainly the wrong directory. Never scaffold in that case.
+  if (options.testName) {
+    console.error(`❌ No Jest E2E project found in: ${projectRoot}`);
+    console.error(`   (looked for __tests__/ or jest-puppeteer.config.js)`);
+    console.error('');
+    console.error('   If your tests live elsewhere, cd to that directory first.');
+    console.error('   To set up a new project here, run: npx jest-e2e init');
+    process.exit(1);
+  }
+  console.log(`🔍 No Jest E2E configuration detected in: ${projectRoot}`);
   console.log('🚀 Initializing your project automatically...\n');
   options.init = true;
 }
