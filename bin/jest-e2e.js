@@ -465,25 +465,14 @@ if (!options.verbose) {
   jestArgs.push('--silent');
 }
 
-// Show configuration
-console.log(`🧪 Jest E2E Test Runner`);
-// console.log(`📁 Running from: ${process.cwd()}`);
-console.log(`🎯 Running test: ${options.testName || 'all tests'}`);
-console.log(`🖥️  Browser mode: ${isVisualMode ? 'visible' : 'headless'}`);
-if (options.repl) console.log(`🔧 REPL mode: enabled (browser will stay open)`);
-if (options.slowmo > 0) console.log(`⏱️  Slow motion: ${options.slowmo}ms`);
-// console.log(`⏰ Timeout: ${options.timeout}ms`);
-// console.log(`📊 Verbose: ${options.verbose ? 'enabled' : 'disabled'}`);
-// console.log(`🐛 Debug: ${options.debug ? 'enabled' : 'disabled'}`);
-// console.log(`📝 Step logging: ${options.steps && !options.silent ? 'enabled' : 'disabled'}`);
-console.log('');
-
 // Run Jest
 const jestCommand = 'npx';
 const jestCmdArgs = ['jest', ...jestArgs];
 
+const stripAnsi = (value) => value.replace(/\x1B\[[0-9;]*m/g, '');
+
 const shouldSuppressSummaryLine = (line) => {
-  const plain = line.replace(/\x1B\[[0-9;]*m/g, '').trim();
+  const plain = stripAnsi(line).trim();
   return (
     plain.startsWith('Test Suites:') ||
     plain.startsWith('Tests:') ||
@@ -499,12 +488,30 @@ const ANSI = {
   yellow: '\x1b[33m',
 };
 
-const colorizeStatusLine = (line) => {
-  const plain = line.replace(/\x1B\[[0-9;]*m/g, '');
-  if (plain.startsWith('FAIL ')) return `${ANSI.red}${plain}${ANSI.reset}`;
-  if (plain.startsWith('PASS ')) return `${ANSI.green}${plain}${ANSI.reset}`;
-  if (plain.startsWith('SKIP ')) return `${ANSI.yellow}${plain}${ANSI.reset}`;
-  return line;
+const statusColors = {
+  FAIL: ANSI.red,
+  PASS: ANSI.green,
+  SKIP: ANSI.yellow,
+};
+
+const statusLabels = {
+  FAIL: 'Fail',
+  PASS: 'Pass',
+  SKIP: 'Skip',
+};
+
+const formatStatusLine = (line) => {
+  const plain = stripAnsi(line);
+  const statusMatch = plain.match(/^(\s*)(PASS|FAIL|SKIP)\s+(.+)$/);
+  if (!statusMatch) return line;
+
+  const [, indent, status, remainder] = statusMatch;
+  const pathMatch = remainder.match(/^(.+\.[cm]?[jt]sx?)(.*)$/);
+  const filePath = pathMatch ? pathMatch[1] : remainder.split(/\s+/)[0];
+  const rest = pathMatch ? pathMatch[2] : remainder.slice(filePath.length);
+  const fileName = path.basename(filePath.replace(/\\/g, '/'));
+
+  return `${indent}${statusColors[status]}${statusLabels[status]}${ANSI.reset}: ${fileName}${rest}`;
 };
 
 const pipeWithOptionalSummaryFilter = (stream, destination, suppressSummary) => {
@@ -512,26 +519,20 @@ const pipeWithOptionalSummaryFilter = (stream, destination, suppressSummary) => 
   let buffer = '';
 
   stream.on('data', (chunk) => {
-    const text = chunk.toString();
-    if (!suppressSummary) {
-      destination.write(text);
-      return;
-    }
-
-    buffer += text;
+    buffer += chunk.toString();
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
     for (const line of lines) {
-      if (!shouldSuppressSummaryLine(line)) {
-        destination.write(colorizeStatusLine(line) + '\n');
+      if (!suppressSummary || !shouldSuppressSummaryLine(line)) {
+        destination.write(formatStatusLine(line) + '\n');
       }
     }
   });
 
   stream.on('end', () => {
     if (buffer && (!suppressSummary || !shouldSuppressSummaryLine(buffer))) {
-      destination.write(colorizeStatusLine(buffer));
+      destination.write(formatStatusLine(buffer));
     }
   });
 };
