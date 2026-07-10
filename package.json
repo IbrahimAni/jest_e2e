@@ -16,7 +16,8 @@
     "test:debug": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --detectOpenHandles",
     "test:headless": "CI=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
     "test:visible": "CI=false NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
-    "postinstall": "echo '\n🚀 Jest E2E installed successfully!' && echo '📖 Run: npx jest-e2e' && echo '   (auto-initializes with examples on first run)\n'"
+    "postinstall": "echo '\n🚀 Jest E2E installed successfully!' && echo '📖 Run: npx jest-e2e' && echo '   (auto-initializes with examples on first run)\n'",
+    "prepublishOnly": "npm run test:framework"
   },
   "keywords": [
     "jest",
@@ -51,15 +52,16 @@
     "README.md",
     "CLI_README.md",
     "EXAMPLES.md",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=16.0.0"
   },
   "dependencies": {
     "jest": "^29.7.0",
-    "puppeteer": "^24.9.0",
-    "jest-puppeteer": "^11.0.0"
+    "jest-puppeteer": "^11.0.0",
+    "puppeteer": "^24.9.0"
   },
   "jest": {
     "preset": "jest-puppeteer",

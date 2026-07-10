@@ -30,6 +30,86 @@ const options = {
   init: false
 };
 
+const logInitializationDetail = (message) => {
+  if (options.verbose) {
+    console.log(message);
+  }
+};
+
+// --- Terminal styling helpers (init banner) ---
+const colorEnabled = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR && process.env.TERM !== 'dumb';
+const stripAnsi = (value) => value.replace(/\x1B\[[0-9;]*m/g, '');
+const paint = (code, text) => (colorEnabled ? `\x1b[${code}m${text}\x1b[0m` : text);
+const bold = (text) => paint('1', text);
+const dim = (text) => paint('2', text);
+const green = (text) => paint('32', text);
+const cyan = (text) => paint('36', text);
+
+// "JEST E2E" in the ANSI Shadow block font (same style as the Gemini CLI banner).
+const WORDMARK_LINES = [
+  '     ██╗███████╗███████╗████████╗   ███████╗██████╗ ███████╗',
+  '     ██║██╔════╝██╔════╝╚══██╔══╝   ██╔════╝╚════██╗██╔════╝',
+  '     ██║█████╗  ███████╗   ██║      █████╗   █████╔╝█████╗  ',
+  '██   ██║██╔══╝  ╚════██║   ██║      ██╔══╝  ██╔═══╝ ██╔══╝  ',
+  '╚█████╔╝███████╗███████║   ██║      ███████╗███████╗███████╗',
+  ' ╚════╝ ╚══════╝╚══════╝   ╚═╝      ╚══════╝╚══════╝╚══════╝',
+];
+
+// Blue → purple → pink gradient, applied left to right.
+// Truecolor terminals get a smooth RGB blend; others get stepped xterm-256 bands.
+const truecolorEnabled = colorEnabled && /truecolor|24bit/i.test(process.env.COLORTERM || '');
+const GRADIENT_RGB_STOPS = [
+  [66, 133, 244],   // blue
+  [155, 114, 203],  // purple
+  [217, 101, 112],  // pink-red
+];
+const GRADIENT_256_COLORS = [33, 69, 99, 135, 168, 204];
+
+const gradientColorCode = (position) => {
+  if (truecolorEnabled) {
+    const scaled = position * (GRADIENT_RGB_STOPS.length - 1);
+    const stop = Math.min(GRADIENT_RGB_STOPS.length - 2, Math.floor(scaled));
+    const local = scaled - stop;
+    const [r, g, b] = GRADIENT_RGB_STOPS[stop].map((channel, i) =>
+      Math.round(channel + (GRADIENT_RGB_STOPS[stop + 1][i] - channel) * local)
+    );
+    return `38;2;${r};${g};${b}`;
+  }
+  const index = Math.min(
+    GRADIENT_256_COLORS.length - 1,
+    Math.floor(position * GRADIENT_256_COLORS.length)
+  );
+  return `38;5;${GRADIENT_256_COLORS[index]}`;
+};
+
+const renderWordmark = () => {
+  const width = Math.max(...WORDMARK_LINES.map((line) => line.length));
+  return WORDMARK_LINES.map((line) => {
+    if (!colorEnabled) return `  ${line}`;
+    let painted = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === ' ') {
+        painted += ch;
+        continue;
+      }
+      painted += `\x1b[1;${gradientColorCode(i / width)}m${ch}`;
+    }
+    return `  ${painted}\x1b[0m`;
+  }).join('\n');
+};
+
+const renderBox = (lines) => {
+  const width = Math.max(...lines.map((line) => stripAnsi(line).length));
+  const top = dim(`╭${'─'.repeat(width + 4)}╮`);
+  const bottom = dim(`╰${'─'.repeat(width + 4)}╯`);
+  const body = lines.map((line) => {
+    const padding = ' '.repeat(width - stripAnsi(line).length);
+    return `${dim('│')}  ${line}${padding}  ${dim('│')}`;
+  });
+  return [top, ...body, bottom].join('\n');
+};
+
 // Parse arguments
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
@@ -96,15 +176,11 @@ if (needsInit) {
     console.error('   To set up a new project here, run: npx jest-e2e init');
     process.exit(1);
   }
-  console.log(`🔍 No Jest E2E configuration detected in: ${projectRoot}`);
-  console.log('🚀 Initializing your project automatically...\n');
   options.init = true;
 }
 
 // Handle init command
 if (options.init) {
-  console.log('🚀 Initializing Jest E2E project...\n');
-  
   const packageRoot = path.dirname(__dirname);
   const projectRoot = process.cwd();
   
@@ -183,7 +259,7 @@ if (options.init) {
   // Write updated package.json
   try {
     writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
-    console.log('📄 Updated: package.json (added ES module support and Jest config)');
+    logInitializationDetail('Updated package.json');
   } catch (error) {
     console.error('❌ Error updating package.json:', error.message);
     process.exit(1);
@@ -196,7 +272,7 @@ if (options.init) {
     const targetDir = path.join(projectRoot, dir);
     if (!existsSync(targetDir)) {
       mkdirSync(targetDir, { recursive: true });
-      console.log(`📁 Created directory: ${dir}/`);
+      logInitializationDetail(`Created directory: ${dir}/`);
     }
   });
 
@@ -209,11 +285,11 @@ if (options.init) {
       if (!currentGitignore.includes(screenshotIgnoreEntry)) {
         const separator = currentGitignore.endsWith('\n') ? '' : '\n';
         writeFileSync(gitignorePath, `${currentGitignore}${separator}${screenshotIgnoreEntry}\n`);
-        console.log('📄 Updated: .gitignore (added __screenshots__/)');
+        logInitializationDetail('Updated .gitignore');
       }
     } else {
       writeFileSync(gitignorePath, `${screenshotIgnoreEntry}\n`);
-      console.log('📄 Created: .gitignore');
+      logInitializationDetail('Created .gitignore');
     }
   } catch (error) {
     console.error('❌ Error updating .gitignore:', error.message);
@@ -235,24 +311,30 @@ if (options.init) {
   const filesToCopy = [
     {
       source: path.join(packageRoot, 'jest-puppeteer.config.js'),
-      target: path.join(projectRoot, 'jest-puppeteer.config.js')
+      target: path.join(projectRoot, 'jest-puppeteer.config.js'),
+      kind: 'config'
     },
     ...exampleTests.map((file) => ({
       source: path.join(packageRoot, '__tests__', file),
-      target: path.join(projectRoot, '__tests__', file)
+      target: path.join(projectRoot, '__tests__', file),
+      kind: 'test'
     })),
     ...exampleBuilders.map((file) => ({
       source: path.join(packageRoot, 'databuilders', file),
-      target: path.join(projectRoot, 'databuilders', file)
+      target: path.join(projectRoot, 'databuilders', file),
+      kind: 'builder'
     }))
   ];
 
-  filesToCopy.forEach(({ source, target }) => {
+  const copiedCounts = { config: 0, test: 0, builder: 0 };
+
+  filesToCopy.forEach(({ source, target, kind }) => {
     try {
       if (existsSync(source)) {
         copyFileSync(source, target);
+        copiedCounts[kind]++;
         const relativePath = path.relative(projectRoot, target);
-        console.log(`📄 Copied: ${relativePath}`);
+        logInitializationDetail(`Copied: ${relativePath}`);
       } else {
         console.warn(`⚠️  Skipped (missing from package): ${path.basename(source)}`);
       }
@@ -280,22 +362,56 @@ global.baseDataBuilder = baseDataBuilder;
   
   try {
     writeFileSync(path.join(projectRoot, 'config', 'test-setup.js'), testSetupContent);
-    console.log('📄 Created: config/test-setup.js');
+    logInitializationDetail('Created: config/test-setup.js');
   } catch (error) {
     console.error('❌ Error creating test-setup.js:', error.message);
   }
   
-  console.log('\n✅ Jest E2E project initialized successfully!');
-  console.log('\nNext steps:');
-  console.log('1. Run: npm install');
-  console.log('2. Test examples: npm run jest-e2e');
-  console.log('3. Edit the example tests to match your application');
-  console.log('4. Create your own test files in __tests__/');
-  console.log('\nAvailable scripts:');
-  console.log('  npm run jest-e2e              # Run all E2E tests');
-  console.log('  npm run jest-e2e:visible      # Run with visible browser');
-  console.log('  npm run jest-e2e:watch        # Run in watch mode');
-  
+  let frameworkVersion = '';
+  try {
+    frameworkVersion = JSON.parse(
+      readFileSync(path.join(packageRoot, 'package.json'), 'utf8')
+    ).version || '';
+  } catch {
+    // Banner degrades gracefully without a version.
+  }
+
+  const summaryRows = [
+    ['package.json', 'scripts, jest config, devDependencies'],
+    ['__tests__/', `${copiedCounts.test} example test${copiedCounts.test === 1 ? '' : 's'}`],
+    ['databuilders/', `${copiedCounts.builder} data builder${copiedCounts.builder === 1 ? '' : 's'}`],
+    ['config/', 'test-setup.js'],
+    ['.gitignore', '__screenshots__/ excluded'],
+  ];
+  const summaryLabelWidth = Math.max(...summaryRows.map(([label]) => label.length));
+
+  const nextSteps = [
+    ['npm install', 'install dependencies'],
+    ['npm run jest-e2e', 'run all tests (headless)'],
+    ['npm run jest-e2e:visible', 'run with a visible browser'],
+  ];
+  const stepLabelWidth = Math.max(...nextSteps.map(([command]) => command.length));
+
+  console.log('');
+  console.log(renderWordmark());
+  console.log('');
+  console.log(renderBox([
+    bold(`Welcome to Jest E2E${frameworkVersion ? ` v${frameworkVersion}` : ''}`),
+    dim('Browser E2E testing with Jest + Puppeteer'),
+  ]));
+  console.log('');
+  summaryRows.forEach(([label, detail]) => {
+    console.log(`  ${green('✔')} ${label.padEnd(summaryLabelWidth + 2)}${dim(detail)}`);
+  });
+  console.log('');
+  console.log(`  ${bold('Next steps')}`);
+  nextSteps.forEach(([command, detail]) => {
+    console.log(`    ${cyan(command.padEnd(stepLabelWidth + 4))}${dim(detail)}`);
+  });
+  console.log('');
+  console.log(`  ${dim('Docs')}  ${dim('https://github.com/genfixs-limited/jest_e2e#readme')}`);
+  console.log('');
+
   process.exit(0);
 }
 
@@ -468,8 +584,6 @@ if (!options.verbose) {
 // Run Jest
 const jestCommand = 'npx';
 const jestCmdArgs = ['jest', ...jestArgs];
-
-const stripAnsi = (value) => value.replace(/\x1B\[[0-9;]*m/g, '');
 
 const shouldSuppressSummaryLine = (line) => {
   const plain = stripAnsi(line).trim();

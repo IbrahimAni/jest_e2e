@@ -1,5 +1,9 @@
 # Publishing Guide for Jest E2E Framework
 
+> **Releasing?** The mandatory pre-publish checklist (docs sync, changelog,
+> verification, website deploy) lives in [RELEASING.md](RELEASING.md). This
+> file only covers npm account setup and one-time publishing mechanics.
+
 ## Prerequisites
 
 1. **npm Account**: Create an account at [npmjs.com](https://www.npmjs.com)
