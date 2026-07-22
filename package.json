@@ -47,7 +47,7 @@
     "config/",
     "databuilders/",
     "types/",
-    "__tests__/",
+    "__tests__/e2e/",
     "jest-puppeteer.config.js",
     "README.md",
     "CLI_README.md",
@@ -75,7 +75,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/bin/",
-      "/__tests__/framework/"
+      "/__tests__/unit/"
     ],
     "testTimeout": 30000,
     "setupFilesAfterEnv": [

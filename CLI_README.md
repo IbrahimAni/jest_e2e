@@ -128,6 +128,36 @@ The CLI automatically sets these environment variables:
 - `PUPPETEER_SLOWMO=<ms>` for slow motion
 - `NODE_OPTIONS=--experimental-vm-modules` for ES6 module support
 
+Auth-related variables are read by `E2ESetup(...)`:
+
+- `VERCEL_AUTOMATION_BYPASS_SECRET` sends Vercel Deployment Protection bypass headers automatically
+- `JEST_E2E_AUTH_HEADER_NAME` + `JEST_E2E_AUTOMATION_KEY` configure generic header auth
+- `JEST_E2E_AUTH_HEADERS`, `JEST_E2E_AUTH_QUERY_PARAMS`, and `JEST_E2E_AUTH_COOKIES` accept JSON for custom auth material
+
+## Project Config
+
+The CLI also loads a Playwright-style project config from the root:
+
+```javascript
+// jest-e2e.config.js
+import { defineConfig } from 'jest-e2e';
+
+// Optional .env support:
+// 1. Run: npm install --save-dev dotenv
+// 2. Uncomment the next line.
+// import 'dotenv/config';
+
+export default defineConfig({
+  auth: {
+    provider: 'vercel',
+    token: process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  },
+});
+```
+
+Supported filenames are `jest-e2e.config.js`, `.mjs`, `.cjs`, and `.json`. Set
+`JEST_E2E_CONFIG=path/to/config.js` to use a custom location.
+
 ## Examples
 
 ### Development Workflow

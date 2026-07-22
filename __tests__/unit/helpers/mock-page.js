@@ -38,6 +38,7 @@ export function createMockPage() {
     evaluate: jest.fn().mockResolvedValue(null),
     screenshot: jest.fn().mockResolvedValue(Buffer.from('')),
     metrics: jest.fn().mockResolvedValue({}),
+    setExtraHTTPHeaders: jest.fn().mockResolvedValue(null),
     setRequestInterception: jest.fn().mockResolvedValue(null),
     on: jest.fn(),
     off: jest.fn(),

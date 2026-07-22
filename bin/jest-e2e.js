@@ -2,7 +2,7 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +45,7 @@ const dim = (text) => paint('2', text);
 const green = (text) => paint('32', text);
 const cyan = (text) => paint('36', text);
 
-// "JEST E2E" in the ANSI Shadow block font (same style as the Gemini CLI banner).
+// "JEST E2E" in the ANSI Shadow block font.
 const WORDMARK_LINES = [
   '     ██╗███████╗███████╗████████╗   ███████╗██████╗ ███████╗',
   '     ██║██╔════╝██╔════╝╚══██╔══╝   ██╔════╝╚════██╗██╔════╝',
@@ -55,32 +55,8 @@ const WORDMARK_LINES = [
   ' ╚════╝ ╚══════╝╚══════╝   ╚═╝      ╚══════╝╚══════╝╚══════╝',
 ];
 
-// Blue → purple → pink gradient, applied left to right.
-// Truecolor terminals get a smooth RGB blend; others get stepped xterm-256 bands.
-const truecolorEnabled = colorEnabled && /truecolor|24bit/i.test(process.env.COLORTERM || '');
-const GRADIENT_RGB_STOPS = [
-  [66, 133, 244],   // blue
-  [155, 114, 203],  // purple
-  [217, 101, 112],  // pink-red
-];
-const GRADIENT_256_COLORS = [33, 69, 99, 135, 168, 204];
-
-const gradientColorCode = (position) => {
-  if (truecolorEnabled) {
-    const scaled = position * (GRADIENT_RGB_STOPS.length - 1);
-    const stop = Math.min(GRADIENT_RGB_STOPS.length - 2, Math.floor(scaled));
-    const local = scaled - stop;
-    const [r, g, b] = GRADIENT_RGB_STOPS[stop].map((channel, i) =>
-      Math.round(channel + (GRADIENT_RGB_STOPS[stop + 1][i] - channel) * local)
-    );
-    return `38;2;${r};${g};${b}`;
-  }
-  const index = Math.min(
-    GRADIENT_256_COLORS.length - 1,
-    Math.floor(position * GRADIENT_256_COLORS.length)
-  );
-  return `38;5;${GRADIENT_256_COLORS[index]}`;
-};
+// Render the wordmark in plain white when color is enabled.
+const gradientColorCode = () => '37';
 
 const renderWordmark = () => {
   const width = Math.max(...WORDMARK_LINES.map((line) => line.length));
@@ -143,12 +119,15 @@ for (let i = 0; i < args.length; i++) {
     i++; // Skip next argument
   } else if (arg === '--retries') {
     options.retries = parseInt(args[i + 1]) || 0;
+    options.retriesProvided = true;
     i++; // Skip next argument
   } else if (arg === '--screenshot') {
     options.screenshot = true;
+    options.screenshotProvided = true;
   } else if (arg === '--no-screenshot') {
     options.screenshot = false;
     options.noScreenshot = true;
+    options.screenshotProvided = true;
   } else if (arg === '--silent') {
     options.silent = true;
     options.steps = false;
@@ -279,16 +258,18 @@ if (options.init) {
   // Ensure screenshots folder is ignored by git
   try {
     const gitignorePath = path.join(projectRoot, '.gitignore');
-    const screenshotIgnoreEntry = '__screenshots__/';
+    const ignoreEntries = ['__screenshots__/', '.env'];
     if (existsSync(gitignorePath)) {
-      const currentGitignore = readFileSync(gitignorePath, 'utf8');
-      if (!currentGitignore.includes(screenshotIgnoreEntry)) {
+      let currentGitignore = readFileSync(gitignorePath, 'utf8');
+      const missingEntries = ignoreEntries.filter((entry) => !currentGitignore.includes(entry));
+      if (missingEntries.length > 0) {
         const separator = currentGitignore.endsWith('\n') ? '' : '\n';
-        writeFileSync(gitignorePath, `${currentGitignore}${separator}${screenshotIgnoreEntry}\n`);
+        currentGitignore = `${currentGitignore}${separator}${missingEntries.join('\n')}\n`;
+        writeFileSync(gitignorePath, currentGitignore);
         logInitializationDetail('Updated .gitignore');
       }
     } else {
-      writeFileSync(gitignorePath, `${screenshotIgnoreEntry}\n`);
+      writeFileSync(gitignorePath, `${ignoreEntries.join('\n')}\n`);
       logInitializationDetail('Created .gitignore');
     }
   } catch (error) {
@@ -315,7 +296,7 @@ if (options.init) {
       kind: 'config'
     },
     ...exampleTests.map((file) => ({
-      source: path.join(packageRoot, '__tests__', file),
+      source: path.join(packageRoot, '__tests__', 'e2e', file),
       target: path.join(projectRoot, '__tests__', file),
       kind: 'test'
     })),
@@ -331,7 +312,15 @@ if (options.init) {
   filesToCopy.forEach(({ source, target, kind }) => {
     try {
       if (existsSync(source)) {
-        copyFileSync(source, target);
+        if (kind === 'test') {
+          // Examples live in the package's __tests__/e2e/ but land in the
+          // user's __tests__/ root, one level shallower.
+          const content = readFileSync(source, 'utf8')
+            .replaceAll("'../../databuilders/", "'../databuilders/");
+          writeFileSync(target, content);
+        } else {
+          copyFileSync(source, target);
+        }
         copiedCounts[kind]++;
         const relativePath = path.relative(projectRoot, target);
         logInitializationDetail(`Copied: ${relativePath}`);
@@ -366,6 +355,33 @@ global.baseDataBuilder = baseDataBuilder;
   } catch (error) {
     console.error('❌ Error creating test-setup.js:', error.message);
   }
+
+  const frameworkConfigPath = path.join(projectRoot, 'jest-e2e.config.js');
+  const frameworkConfigContent = `import { defineConfig } from 'jest-e2e';
+
+// Optional .env support:
+// 1. Run: npm install --save-dev dotenv
+// 2. Uncomment the next line to load variables from .env before this config runs.
+// import 'dotenv/config';
+
+export default defineConfig({
+  auth: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+    ? {
+        provider: 'vercel',
+        token: process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+      }
+    : undefined,
+});
+`;
+
+  try {
+    if (!existsSync(frameworkConfigPath)) {
+      writeFileSync(frameworkConfigPath, frameworkConfigContent);
+      logInitializationDetail('Created: jest-e2e.config.js');
+    }
+  } catch (error) {
+    console.error('❌ Error creating jest-e2e.config.js:', error.message);
+  }
   
   let frameworkVersion = '';
   try {
@@ -381,7 +397,8 @@ global.baseDataBuilder = baseDataBuilder;
     ['__tests__/', `${copiedCounts.test} example test${copiedCounts.test === 1 ? '' : 's'}`],
     ['databuilders/', `${copiedCounts.builder} data builder${copiedCounts.builder === 1 ? '' : 's'}`],
     ['config/', 'test-setup.js'],
-    ['.gitignore', '__screenshots__/ excluded'],
+    ['jest-e2e.config.js', 'project-level framework config'],
+    ['.gitignore', '__screenshots__/ and .env excluded'],
   ];
   const summaryLabelWidth = Math.max(...summaryRows.map(([label]) => label.length));
 
@@ -466,12 +483,67 @@ ENVIRONMENT:
 NOTE:
   If no __tests__/ directory or jest-puppeteer.config.js is found,
   the framework will automatically initialize your project.
+
+CONFIG:
+  Optional project config: jest-e2e.config.js, .mjs, .cjs, or .json
+  Example: export default { auth: { provider: 'vercel' } }
   `);
   process.exit(0);
 }
 
+const CONFIG_FILE_NAMES = [
+  'jest-e2e.config.js',
+  'jest-e2e.config.mjs',
+  'jest-e2e.config.cjs',
+  'jest-e2e.config.json',
+];
+
+const findFrameworkConfigPath = (rootDir) => {
+  if (process.env.JEST_E2E_CONFIG) {
+    const configuredPath = path.isAbsolute(process.env.JEST_E2E_CONFIG)
+      ? process.env.JEST_E2E_CONFIG
+      : path.resolve(rootDir, process.env.JEST_E2E_CONFIG);
+    return existsSync(configuredPath) ? configuredPath : null;
+  }
+
+  return CONFIG_FILE_NAMES
+    .map((fileName) => path.join(rootDir, fileName))
+    .find((filePath) => existsSync(filePath)) || null;
+};
+
+const loadFrameworkConfig = async (rootDir) => {
+  const configPath = findFrameworkConfigPath(rootDir);
+  if (!configPath) {
+    return {};
+  }
+
+  try {
+    if (configPath.endsWith('.json')) {
+      return JSON.parse(readFileSync(configPath, 'utf8'));
+    }
+
+    const importedConfig = await import(pathToFileURL(configPath).href);
+    return importedConfig.default || importedConfig;
+  } catch (error) {
+    console.error(`❌ Error loading ${path.basename(configPath)}: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
+
+const applyFrameworkConfigToEnv = (config, env) => {
+  if (!config || typeof config !== 'object') return;
+
+  if (hasOwn(config, 'auth') && config.auth !== undefined && env.JEST_E2E_AUTH_CONFIG === undefined) {
+    env.JEST_E2E_AUTH_CONFIG = JSON.stringify(config.auth);
+  }
+};
+
 // Set up environment variables
 const env = { ...process.env };
+const frameworkConfig = await loadFrameworkConfig(projectRoot);
+applyFrameworkConfigToEnv(frameworkConfig, env);
 
 // Configure browser mode
 if (options.useLocalBrowser) {

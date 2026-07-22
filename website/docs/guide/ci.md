@@ -61,6 +61,13 @@ npm run test:headless
 | `JEST_E2E_TIMEOUT=<ms>` | Auto-wait timeout for actions and assertions |
 | `JEST_E2E_RETRIES=<n>` | Retry failed tests n times |
 | `JEST_E2E_SCREENSHOT=false` | Disable failure screenshots |
+| `VERCEL_AUTOMATION_BYPASS_SECRET=<secret>` | Send Vercel Deployment Protection bypass headers automatically |
+| `JEST_E2E_AUTH_HEADER_NAME=<name>` | Generic automation auth header name |
+| `JEST_E2E_AUTOMATION_KEY=<secret>` | Generic automation auth header value |
+| `JEST_E2E_AUTH_HEADERS='{"x-api-key":"secret"}'` | Generic auth headers as JSON |
+| `JEST_E2E_AUTH_QUERY_PARAMS='{"preview":"1"}'` | Generic auth query params as JSON |
+| `JEST_E2E_AUTH_COOKIES='[{"name":"session","value":"secret"}]'` | Generic auth cookies as JSON |
+| `JEST_E2E_CONFIG=path/to/config.js` | Use a custom project config file |
 | `JEST_SILENT=true` | Suppress step logging entirely |
 | `JEST_FORCE_STEPS=true` | Force step logging on in CI |
 

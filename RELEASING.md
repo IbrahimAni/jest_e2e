@@ -33,7 +33,7 @@ update every listed doc:
 | Assertions | `website/docs/api/assertions.md`, `website/docs/guide/assertions.md` |
 | Device / auto-wait / smooth mode | `website/docs/api/device.md`, `website/docs/guide/debugging.md` |
 | `databuilders/` | `website/docs/guide/test-data.md`, `EXAMPLES.md` |
-| Example tests in `__tests__/` | `website/docs/guide/writing-tests.md`, `EXAMPLES.md` |
+| Example tests in `__tests__/e2e/` | `website/docs/guide/writing-tests.md`, `EXAMPLES.md` |
 | CI behavior (headless, retries, timeouts) | `website/docs/guide/ci.md` |
 | Anything user-visible | `README.md`, `website/docs/intro.md` |
 

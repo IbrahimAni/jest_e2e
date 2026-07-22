@@ -10,7 +10,7 @@
 /* eslint-disable no-undef */
 "use strict";
 
-import { SauceDemoDataBuilder } from '../databuilders/sauce-demo-data-builder.js';
+import { SauceDemoDataBuilder } from '../../databuilders/sauce-demo-data-builder.js';
 
 const { getTestData, getDevices } = E2ESetup({
   databuilder: SauceDemoDataBuilder(),

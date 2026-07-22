@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'fs';
+import { readFileSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,5 +32,21 @@ describe('jest-e2e CLI initialization output', () => {
     expect(output).not.toContain('Copied:');
     // Piped output (non-TTY) must stay plain — no ANSI escape codes.
     expect(output).not.toContain('\x1b[');
+  });
+
+  test('scaffolds config with optional dotenv support and ignores .env', () => {
+    execFileSync('node', [cliPath, 'init'], {
+      cwd: projectDir,
+      encoding: 'utf8',
+    });
+
+    const config = readFileSync(path.join(projectDir, 'jest-e2e.config.js'), 'utf8');
+    const gitignore = readFileSync(path.join(projectDir, '.gitignore'), 'utf8');
+
+    expect(config).toContain('// import \'dotenv/config\';');
+    expect(config).toContain('npm install --save-dev dotenv');
+    expect(config).toContain('process.env.VERCEL_AUTOMATION_BYPASS_SECRET');
+    expect(gitignore).toContain('__screenshots__/');
+    expect(gitignore).toContain('.env');
   });
 });

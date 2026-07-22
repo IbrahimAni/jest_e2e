@@ -54,6 +54,33 @@ npx jest-e2e --retries 2
 npx jest-e2e --timeout 15000
 ```
 
+## Project config
+
+The CLI automatically loads a project config file from the root when present:
+
+- `jest-e2e.config.js`
+- `jest-e2e.config.mjs`
+- `jest-e2e.config.cjs`
+- `jest-e2e.config.json`
+
+Use `JEST_E2E_CONFIG=path/to/config.js` to point at a custom file.
+
+```javascript title="jest-e2e.config.js"
+import { defineConfig } from 'jest-e2e';
+
+// Optional .env support:
+// 1. Run: npm install --save-dev dotenv
+// 2. Uncomment the next line.
+// import 'dotenv/config';
+
+export default defineConfig({
+  auth: {
+    provider: 'vercel',
+    token: process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  },
+});
+```
+
 ## What init does
 
 `npx jest-e2e init` (or the automatic first run) sets up a project:
@@ -62,8 +89,9 @@ npx jest-e2e --timeout 15000
 - Creates `__tests__/` with four example tests that run against a live demo app
 - Creates `databuilders/` with base and example builders
 - Creates `config/test-setup.js` wiring the framework's globals, step logging, and one-test-per-file enforcement
+- Creates `jest-e2e.config.js` for project-level framework config such as automation auth, with optional commented `.env` support
 - Copies `jest-puppeteer.config.js`
-- Adds `__screenshots__/` to `.gitignore`
+- Adds `__screenshots__/` and `.env` to `.gitignore`
 
 After init:
 

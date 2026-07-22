@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { E2EConfiguration, E2ESetup } from '../../config/e2e-setup.js';
+import { AUTH_GLOBAL } from '../../config/auth.js';
 
 describe('E2EConfiguration', () => {
   test('initializes with default values', () => {
@@ -269,5 +270,42 @@ describe('E2ESetup retry support', () => {
     process.env.JEST_E2E_RETRIES = '5';
     E2ESetup({ retries: 2 });
     expect(mockRetryTimes).toHaveBeenCalledWith(2, { logErrorsBeforeRetry: true });
+  });
+});
+
+describe('E2ESetup auth support', () => {
+  const originalBeforeEach = global.beforeEach;
+  const originalAfterEach = global.afterEach;
+  const originalBeforeAll = global.beforeAll;
+  const originalAfterAll = global.afterAll;
+
+  beforeEach(() => {
+    global.beforeEach = jest.fn();
+    global.afterEach = jest.fn();
+    global.beforeAll = jest.fn();
+    global.afterAll = jest.fn();
+  });
+
+  afterEach(() => {
+    global.beforeEach = originalBeforeEach;
+    global.afterEach = originalAfterEach;
+    global.beforeAll = originalBeforeAll;
+    global.afterAll = originalAfterAll;
+    delete global[AUTH_GLOBAL];
+  });
+
+  test('stores auth rules from setup config', () => {
+    E2ESetup({
+      auth: {
+        headers: { 'x-automation-key': 'abc123' },
+      },
+      screenshotOnFailure: false,
+    });
+
+    expect(global[AUTH_GLOBAL]).toEqual([
+      expect.objectContaining({
+        headers: { 'x-automation-key': 'abc123' },
+      }),
+    ]);
   });
 });

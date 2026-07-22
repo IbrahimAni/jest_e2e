@@ -22,7 +22,8 @@ or the website docs.
 
 ## Development notes
 
-- Framework tests: `npm run test:framework` (Jest, `__tests__/framework/`).
+- Framework unit tests: `npm run test:framework` (Jest, `__tests__/unit/`).
+- Dogfood E2E examples (real browser; also the CLI init examples): `__tests__/e2e/`.
 - User-visible changes to the CLI (`bin/jest-e2e.js`) must also update the
   `--help` text, `CLI_README.md`, and `website/docs/api/cli.md`.
 - Keep an `[Unreleased]` section in `CHANGELOG.md` current as user-visible

@@ -13,9 +13,30 @@ beforeEach(() => {
 });
 
 describe('device navigation utilities', () => {
+  afterEach(() => {
+    delete global.__JEST_E2E_AUTH__;
+  });
+
   test('navigate calls page.goto with url and options', async () => {
     await device.navigate('https://example.com', { waitUntil: 'networkidle0' });
     expect(global.page.goto).toHaveBeenCalledWith('https://example.com', { waitUntil: 'networkidle0' });
+  });
+
+  test('navigate applies auth config and strips it from goto options', async () => {
+    await device.navigate('https://example.com/dashboard', {
+      waitUntil: 'networkidle0',
+      auth: {
+        headers: { 'x-automation-key': 'abc123' },
+      },
+    });
+
+    expect(global.page.setExtraHTTPHeaders).toHaveBeenCalledWith({
+      'x-automation-key': 'abc123',
+    });
+    expect(global.page.goto).toHaveBeenCalledWith(
+      'https://example.com/dashboard',
+      { waitUntil: 'networkidle0' }
+    );
   });
 
   test('goBack calls page.goBack', async () => {

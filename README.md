@@ -47,7 +47,7 @@ The framework automatically:
 - ✅ Updates your `package.json` with ES module support and Jest configuration
 - ✅ Adds helpful npm scripts (`npm run jest-e2e`, `npm run jest-e2e:visible`, etc.)
 - ✅ Creates `__tests__/`, `databuilders/`, and `config/` directories  
-- ✅ Copies example tests and configuration files
+- ✅ Copies example tests and creates `jest-e2e.config.js`
 - ✅ Sets up global access to Jest E2E functions
 - ✅ Installs required dependencies automatically
 - ✅ Runs the example tests to show you it works
@@ -147,6 +147,88 @@ const { getTestData, getDevices } = E2ESetup({
 // Use in your tests
 const { device } = getDevices();
 const { userEmail, userPassword } = getTestData();
+```
+
+### Authenticated Deployments
+Protected deployments can be tested by giving the framework an automation key.
+Secrets should come from environment variables or your CI secret store, not from
+committed test files.
+
+For Vercel Deployment Protection, set the secret from **Protection Bypass for
+Automation**:
+
+```bash
+export VERCEL_AUTOMATION_BYPASS_SECRET="your-vercel-bypass-secret"
+npx jest-e2e
+```
+
+When that variable is present, `E2ESetup(...)` automatically sends:
+
+- `x-vercel-protection-bypass: <secret>`
+- `x-vercel-set-bypass-cookie: true`
+
+That second header lets Vercel set a bypass cookie so browser clicks and route
+changes after the first page load do not redirect back to the Vercel login page.
+
+For a Playwright-style project config, create `jest-e2e.config.js` in the project
+root:
+
+```javascript
+import { defineConfig } from 'jest-e2e';
+
+// Optional .env support:
+// 1. Run: npm install --save-dev dotenv
+// 2. Uncomment the next line.
+// import 'dotenv/config';
+
+export default defineConfig({
+  auth: {
+    provider: 'vercel',
+    token: process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+  },
+});
+```
+
+Then create a local `.env` file:
+
+```bash
+VERCEL_AUTOMATION_BYPASS_SECRET=your-vercel-bypass-secret
+```
+
+Then keep auth out of the test files:
+
+```javascript
+const { getDevices } = E2ESetup({
+  devices: {
+    device: createChromeE2EApi({}),
+  },
+});
+```
+
+For other providers, pass the header, query params, or cookies your automation
+gateway expects from `jest-e2e.config.js`:
+
+```javascript
+import { defineConfig } from 'jest-e2e';
+
+// import 'dotenv/config';
+
+export default defineConfig({
+  auth: {
+    headers: {
+      'x-automation-key': process.env.AUTOMATION_KEY,
+    },
+    urlPatterns: ['staging.example.com'],
+  },
+});
+```
+
+Or configure generic header auth entirely through environment variables:
+
+```bash
+export JEST_E2E_AUTH_HEADER_NAME="x-automation-key"
+export JEST_E2E_AUTOMATION_KEY="your-automation-key"
+npx jest-e2e
 ```
 
 ### Device API
@@ -253,7 +335,9 @@ your-project/
 │   └── tavola-data-builder.js
 ├── config/                        # Configuration files (auto-created)
 │   └── test-setup.js              # Global Jest E2E setup
+├── jest-e2e.config.js             # Framework config for auth and future defaults
 ├── jest-puppeteer.config.js       # Puppeteer configuration (auto-created)
+├── .gitignore                     # Ignores screenshots and local .env secrets
 └── package.json                   # Updated with ES modules & Jest config
 ```
 
@@ -262,6 +346,7 @@ The framework automatically creates all necessary files:
 - **Example Tests**: Four example tests (against the Tavola demo app) showing different patterns
 - **Data Builders**: Base and example data builders for test data generation
 - **Configuration**: Jest setup and Puppeteer configuration
+- **Framework Config**: `jest-e2e.config.js` for project-level automation auth
 - **Package Configuration**: Your package.json gets updated with proper ES module and Jest settings
 
 ## 🏗️ Custom Configuration

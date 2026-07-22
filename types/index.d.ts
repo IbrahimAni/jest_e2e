@@ -3,6 +3,45 @@ export interface DeviceOptions {
   timeout?: number;
 }
 
+export interface AuthCookie {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  url?: string;
+  expires?: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+  [key: string]: unknown;
+}
+
+export interface AuthConfig {
+  provider?: 'vercel' | 'generic' | string;
+  token?: string;
+  key?: string;
+  secret?: string;
+  headerName?: string;
+  headerValue?: string;
+  headerPrefix?: string;
+  headers?: Record<string, string>;
+  queryParams?: Record<string, string | number | boolean | Array<string | number | boolean>>;
+  cookies?: AuthCookie | AuthCookie[];
+  urlPatterns?: string | string[];
+  urlPattern?: string;
+  transport?: 'header' | 'headers' | 'query' | 'params' | 'both' | string;
+  setBypassCookie?: boolean | 'true' | 'false' | 'samesitenone' | string;
+}
+
+export type AuthInput = AuthConfig | AuthConfig[] | 'vercel' | false;
+
+export interface NavigationOptions {
+  waitUntil?: string | string[];
+  timeout?: number;
+  auth?: AuthInput;
+  [key: string]: unknown;
+}
+
 export interface DeviceAssertions {
   toContain(text: string): Promise<void>;
   toHaveText(text: string): Promise<void>;
@@ -26,7 +65,7 @@ export interface CSSDevice {
 }
 
 export interface Device {
-  navigate(url: string, options?: object): Promise<unknown>;
+  navigate(url: string, options?: NavigationOptions): Promise<unknown>;
   goBack(options?: object): Promise<unknown>;
   goForward(options?: object): Promise<unknown>;
   refresh(options?: object): Promise<unknown>;
@@ -88,12 +127,17 @@ export interface ChromeDevice extends Device {
 export interface E2ESetupConfig {
   databuilder?: Record<string, unknown> | null;
   devices?: Record<string, Device>;
+  auth?: AuthInput;
   retries?: number;
   timeout?: number;
   screenshotOnFailure?: boolean;
   smoothMode?: boolean;
   actionDelay?: number;
   disableAnimations?: boolean;
+}
+
+export interface JestE2EConfig {
+  auth?: AuthInput;
 }
 
 export interface E2EDebugInfo {
@@ -132,6 +176,7 @@ export interface BaseDataBuilderLike {
 
 export function E2ESetup(config?: E2ESetupConfig): E2ESetupResult;
 export function createChromeE2EApi(options?: object): ChromeDevice;
+export function defineConfig(config: JestE2EConfig): JestE2EConfig;
 export function logStep(action: string, detail?: string): void;
 export function AgentTestDataBuilder(): BaseDataBuilderLike & {
   userEmail: string;

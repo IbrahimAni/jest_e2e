@@ -2,6 +2,7 @@
 export { E2ESetup } from './config/e2e-setup.js';
 export { logStep } from './config/step-logger.js';
 export { createChromeE2EApi } from './config/chrome-api.js';
+export const defineConfig = (config) => config;
 
 // Export data builders
 export { baseDataBuilder } from './databuilders/base-data-builder.js';

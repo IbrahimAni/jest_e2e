@@ -38,6 +38,7 @@ The first run detects that your project isn't set up yet and initializes it:
 - Updates `package.json` with ES module support and Jest configuration
 - Creates `__tests__/` with four working example tests
 - Creates `databuilders/` for test data and `config/` for setup
+- Creates `jest-e2e.config.js` for project-level framework config
 - Adds npm scripts: `jest-e2e`, `jest-e2e:visible`, `jest-e2e:watch`
 
 :::note

@@ -1,5 +1,6 @@
 // Device wrapper for clean data-testid interactions and CSS selectors
 import { stepLogger } from './step-logger.js';
+import { prepareAuthenticatedNavigation } from './auth.js';
 const DEFAULT_WAIT_TIMEOUT = 5000;
 
 const smartSelector = (selector) => {
@@ -328,7 +329,9 @@ const device = {
   // Navigation
   navigate: async (url, options = {}) => {
     stepLogger.step('Navigating', `to ${url}`);
-    const result = await page.goto(url, options);
+    const { auth, ...gotoOptions } = options;
+    const navigation = await prepareAuthenticatedNavigation(page, url, auth);
+    const result = await page.goto(navigation.url, gotoOptions);
     await disableAnimationsIfNeeded();
     await ensureCursorOverlay();
     return result;

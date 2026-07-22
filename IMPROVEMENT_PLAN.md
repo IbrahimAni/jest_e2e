@@ -36,13 +36,13 @@
 
 ## Testing Strategy
 
-**All tests go in `__tests__/framework/`** — these are unit tests for the framework itself, NOT Puppeteer E2E tests. They mock the global `page` object and other Puppeteer dependencies.
+**All tests go in `__tests__/unit/`** — these are unit tests for the framework itself, NOT Puppeteer E2E tests. They mock the global `page` object and other Puppeteer dependencies.
 
 **Test file naming:** `<module-name>.test.js` (e.g., `smart-selector.test.js`, `e2e-setup.test.js`)
 
 **Running framework tests separately:** Add a script to `package.json`:
 ```json
-"test:framework": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest __tests__/framework/ --no-coverage"
+"test:framework": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest __tests__/unit/ --no-coverage"
 ```
 
 **Important:** Since the project uses ES modules, tests must use `import` syntax. The `--experimental-vm-modules` flag is already configured.
@@ -67,14 +67,14 @@ beforeEach(() => {
 **Goal:** Set up the test directory structure, shared mocks, and npm script before any feature work begins.
 
 **Files to create:**
-- `__tests__/framework/helpers/mock-page.js` — Shared Puppeteer page mock
-- `__tests__/framework/helpers/mock-step-logger.js` — Shared step logger mock
+- `__tests__/unit/helpers/mock-page.js` — Shared Puppeteer page mock
+- `__tests__/unit/helpers/mock-step-logger.js` — Shared step logger mock
 
 **Files to modify:** `package.json`
 
 **Instructions:**
 
-1. Create `__tests__/framework/helpers/mock-page.js`:
+1. Create `__tests__/unit/helpers/mock-page.js`:
    ```js
    // Shared mock for the global Puppeteer `page` object
    export function createMockPage() {
@@ -127,7 +127,7 @@ beforeEach(() => {
    }
    ```
 
-2. Create `__tests__/framework/helpers/mock-step-logger.js`:
+2. Create `__tests__/unit/helpers/mock-step-logger.js`:
    ```js
    // Mock step logger to prevent console output during tests
    export function mockStepLogger() {
@@ -142,7 +142,7 @@ beforeEach(() => {
 
 3. Add to `package.json` scripts:
    ```json
-   "test:framework": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest __tests__/framework/ --no-coverage"
+   "test:framework": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest __tests__/unit/ --no-coverage"
    ```
 
 4. Export `smartSelector` from `device.js` so it can be unit tested. Change the export line at the bottom of `config/device.js` from:
@@ -162,7 +162,7 @@ beforeEach(() => {
 
 **Goal:** Test the existing `smartSelector()` and `resolveWaitTimeout()` functions which are the foundation of the device API.
 
-**Files to create:** `__tests__/framework/smart-selector.test.js`
+**Files to create:** `__tests__/unit/smart-selector.test.js`
 **Files to modify:** `config/device.js` (export `resolveWaitTimeout` as well)
 
 **Instructions:**
@@ -172,7 +172,7 @@ beforeEach(() => {
    export { device, smartSelector, resolveWaitTimeout };
    ```
 
-2. Create `__tests__/framework/smart-selector.test.js`:
+2. Create `__tests__/unit/smart-selector.test.js`:
    ```js
    import { smartSelector, resolveWaitTimeout } from '../../config/device.js';
 
@@ -256,7 +256,7 @@ beforeEach(() => {
 **Goal:** The `beforeEach`/`afterEach`/`beforeAll`/`afterAll` hooks in `E2EConfiguration` are stored but never executed. Wire them into the Jest lifecycle.
 
 **Files to modify:** `config/e2e-setup.js`
-**Files to create:** `__tests__/framework/e2e-setup.test.js`
+**Files to create:** `__tests__/unit/e2e-setup.test.js`
 
 ### Implementation:
 
@@ -319,7 +319,7 @@ beforeEach(() => {
 
 ### Tests:
 
-Create `__tests__/framework/e2e-setup.test.js`:
+Create `__tests__/unit/e2e-setup.test.js`:
 ```js
 import { E2ESetup, E2EConfiguration } from '../../config/e2e-setup.js';
 
@@ -520,11 +520,11 @@ describe('E2ESetup factory function', () => {
 
 **Goal:** Test the existing `BaseDataBuilder` and `AgentTestDataBuilder` classes.
 
-**Files to create:** `__tests__/framework/data-builder.test.js`
+**Files to create:** `__tests__/unit/data-builder.test.js`
 
 **Instructions:**
 
-Create `__tests__/framework/data-builder.test.js`:
+Create `__tests__/unit/data-builder.test.js`:
 ```js
 import { BaseDataBuilder, baseDataBuilder } from '../../databuilders/base-data-builder.js';
 import { AgentTestDataBuilder } from '../../databuilders/agent-test-data-builder.js';
@@ -602,7 +602,7 @@ describe('AgentTestDataBuilder', () => {
 **Goal:** When a device action fails, show the user what went wrong with full context.
 
 **Files to modify:** `config/device.js`
-**Files to create:** `__tests__/framework/device-errors.test.js`
+**Files to create:** `__tests__/unit/device-errors.test.js`
 
 ### Implementation:
 
@@ -683,7 +683,7 @@ describe('AgentTestDataBuilder', () => {
 
 ### Tests:
 
-Create `__tests__/framework/device-errors.test.js`:
+Create `__tests__/unit/device-errors.test.js`:
 ```js
 import { createMockPage } from './helpers/mock-page.js';
 
@@ -791,11 +791,11 @@ describe('device methods succeed with valid page', () => {
 
 **Goal:** Keep text entry API centered on `device.type('locator', 'sample input')` and validate behavior with dedicated unit tests.
 
-**Files to create:** `__tests__/framework/device-type.test.js`
+**Files to create:** `__tests__/unit/device-type.test.js`
 
 ### Tests:
 
-Create `__tests__/framework/device-type.test.js`:
+Create `__tests__/unit/device-type.test.js`:
 ```js
 import { createMockPage } from './helpers/mock-page.js';
 
@@ -873,7 +873,7 @@ describe('device.type()', () => {
 **Goal:** Add common wait utilities that currently require manual polling.
 
 **Files to modify:** `config/device.js`
-**Files to create:** `__tests__/framework/device-wait-utils.test.js`
+**Files to create:** `__tests__/unit/device-wait-utils.test.js`
 
 ### Implementation:
 
@@ -922,7 +922,7 @@ waitForUrl: async (urlPattern, options = {}) => {
 
 ### Tests:
 
-Create `__tests__/framework/device-wait-utils.test.js`:
+Create `__tests__/unit/device-wait-utils.test.js`:
 ```js
 import { createMockPage } from './helpers/mock-page.js';
 
@@ -1019,7 +1019,7 @@ describe('device.waitForUrl()', () => {
 **Goal:** Let users set default timeouts globally instead of hardcoding 5000ms.
 
 **Files to modify:** `config/device.js`, `config/e2e-setup.js`, `config/chrome-api.js`
-**Files to modify (tests):** `__tests__/framework/smart-selector.test.js` (add timeout tests)
+**Files to modify (tests):** `__tests__/unit/smart-selector.test.js` (add timeout tests)
 
 ### Implementation:
 
@@ -1053,7 +1053,7 @@ describe('device.waitForUrl()', () => {
 
 ### Tests:
 
-Add to `__tests__/framework/e2e-setup.test.js`:
+Add to `__tests__/unit/e2e-setup.test.js`:
 ```js
 describe('E2ESetup configurable timeout', () => {
   afterEach(() => {
@@ -1073,7 +1073,7 @@ describe('E2ESetup configurable timeout', () => {
 });
 ```
 
-Add to `__tests__/framework/smart-selector.test.js`:
+Add to `__tests__/unit/smart-selector.test.js`:
 ```js
 describe('resolveWaitTimeout with global override', () => {
   afterEach(() => {
@@ -1101,7 +1101,7 @@ describe('resolveWaitTimeout with global override', () => {
 **Goal:** Allow tests to be retried on failure.
 
 **Files to modify:** `config/e2e-setup.js`, `bin/jest-e2e.js`
-**Files to modify (tests):** `__tests__/framework/e2e-setup.test.js`
+**Files to modify (tests):** `__tests__/unit/e2e-setup.test.js`
 
 ### Implementation:
 
@@ -1129,7 +1129,7 @@ describe('resolveWaitTimeout with global override', () => {
 
 ### Tests:
 
-Add to `__tests__/framework/e2e-setup.test.js`:
+Add to `__tests__/unit/e2e-setup.test.js`:
 ```js
 describe('E2ESetup retry support', () => {
   let mockRetryTimes;
@@ -1176,7 +1176,7 @@ describe('E2ESetup retry support', () => {
 **Goal:** Automatically capture a screenshot when a test fails for debugging.
 
 **Files to modify:** `config/e2e-setup.js`
-**Files to create:** `__tests__/framework/screenshot-on-failure.test.js`
+**Files to create:** `__tests__/unit/screenshot-on-failure.test.js`
 
 ### Implementation:
 
@@ -1223,7 +1223,7 @@ describe('E2ESetup retry support', () => {
 
 ### Tests:
 
-Create `__tests__/framework/screenshot-on-failure.test.js`:
+Create `__tests__/unit/screenshot-on-failure.test.js`:
 ```js
 import { E2ESetup } from '../../config/e2e-setup.js';
 
@@ -1311,7 +1311,7 @@ describe('screenshot on failure', () => {
 **Goal:** Enhance `interceptNetwork()` to support response mocking, not just blocking.
 
 **Files to modify:** `config/chrome-api.js`
-**Files to create:** `__tests__/framework/chrome-api.test.js`
+**Files to create:** `__tests__/unit/chrome-api.test.js`
 
 ### Implementation:
 
@@ -1355,7 +1355,7 @@ async interceptNetwork(rules = []) {
 
 ### Tests:
 
-Create `__tests__/framework/chrome-api.test.js`:
+Create `__tests__/unit/chrome-api.test.js`:
 ```js
 import { createMockPage } from './helpers/mock-page.js';
 
@@ -1588,7 +1588,7 @@ describe('mobile helpers', () => {
 **Goal:** Implement touch simulation properly using CDP.
 
 **Files to modify:** `config/chrome-api.js`
-**Files to modify (tests):** `__tests__/framework/chrome-api.test.js`
+**Files to modify (tests):** `__tests__/unit/chrome-api.test.js`
 
 ### Implementation:
 
@@ -1621,7 +1621,7 @@ Or use a simpler approach — since `tap` is Chrome-specific, it can use raw CSS
 
 ### Tests:
 
-Add to `__tests__/framework/chrome-api.test.js`:
+Add to `__tests__/unit/chrome-api.test.js`:
 ```js
 describe('simulateTouch', () => {
   test('enables touch emulation via CDP', async () => {

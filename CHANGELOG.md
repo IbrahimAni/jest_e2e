@@ -8,16 +8,29 @@ Before releasing, follow [RELEASING.md](RELEASING.md).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-23
+
 ### Added
-- Gemini-style `init` banner: ANSI Shadow block wordmark with a blue→purple→pink
-  gradient (truecolor with xterm-256 fallback), boxed welcome panel with the
-  framework version, scaffold checklist, and next-steps section. Output stays
-  plain when piped or when `NO_COLOR`/`TERM=dumb` is set.
+- `init` banner: ANSI Shadow block wordmark rendered in plain white, boxed
+  welcome panel with the framework version, scaffold checklist, and
+  next-steps section. Output stays plain when piped or when
+  `NO_COLOR`/`TERM=dumb` is set.
+- Authenticated deployment support: pass an `auth` config (via
+  `jest-e2e.config.js`/`.mjs`/`.cjs`/`.json`, `$JEST_E2E_CONFIG`, or the
+  `JEST_E2E_AUTH_CONFIG`/`JEST_E2E_AUTH_HEADER_NAME` env vars) to inject
+  headers, cookies, or query params into requests. Ships a built-in `vercel`
+  provider (`x-vercel-protection-bypass` + bypass cookie) for Vercel
+  Deployment Protection. `init` now scaffolds a project-level
+  `jest-e2e.config.js` and adds `.env` to the generated `.gitignore`.
 
 ### Changed
 - Colorized test-run output: `PASS`/`FAIL`/`SKIP` lines are reformatted as
   colored `Pass:`/`Fail:`/`Skip:` with the test file name; Jest's summary block
   is suppressed unless `--verbose` is used.
+- Repo test layout: framework unit tests moved to `__tests__/unit/` and example
+  e2e tests to `__tests__/e2e/`. The published package now ships only
+  `__tests__/e2e/` (smaller tarball); `init` scaffolding in user projects is
+  unchanged.
 
 ## [1.2.0] - 2026-07-08
 

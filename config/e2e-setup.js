@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { setGlobalAuthConfig } from './auth.js';
 
 // E2E Setup - Main orchestrator for test configuration
 class E2EConfiguration {
@@ -158,6 +159,8 @@ class E2EConfiguration {
 // Main setup function
 function E2ESetup(config = {}) {
   const e2eConfig = new E2EConfiguration(config);
+  setGlobalAuthConfig(config.auth);
+
   // Screenshot on failure: config wins, then JEST_E2E_SCREENSHOT env (CLI
   // --no-screenshot sets it to 'false'), default on.
   const screenshotOnFailure = typeof config.screenshotOnFailure === 'boolean'

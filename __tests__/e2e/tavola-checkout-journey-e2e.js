@@ -22,7 +22,7 @@
 /* eslint-disable no-undef */
 "use strict";
 
-import { TavolaDataBuilder } from '../databuilders/tavola-data-builder.js';
+import { TavolaDataBuilder } from '../../databuilders/tavola-data-builder.js';
 
 const { getTestData, getDevices } = E2ESetup({
   databuilder: TavolaDataBuilder(),
