@@ -35,7 +35,7 @@ update every listed doc:
 | `databuilders/` | `website/docs/guide/test-data.md`, `EXAMPLES.md` |
 | Example tests in `__tests__/e2e/` | `website/docs/guide/writing-tests.md`, `EXAMPLES.md` |
 | CI behavior (headless, retries, timeouts) | `website/docs/guide/ci.md` |
-| Anything user-visible | `README.md`, `website/docs/intro.md` |
+| Anything user-visible | `README.md`, `website/docs/intro.md`, `website/docs/release-notes.md` |
 
 Checklist:
 
@@ -44,12 +44,21 @@ Checklist:
 - [ ] No doc page still describes removed or renamed behavior (`grep` the old name across `website/docs/`, `README.md`, `CLI_README.md`, `EXAMPLES.md`).
 - [ ] Code samples in the docs actually run against this release.
 
-## 3. Update CHANGELOG.md
+## 3. Update CHANGELOG.md and the website release notes
 
 Move the `[Unreleased]` entries into a new `[X.Y.Z] - YYYY-MM-DD` section
 (Keep a Changelog format: Added / Changed / Fixed / Removed). Every commit from
 step 1 that users can observe must be represented. Leave an empty
 `[Unreleased]` section at the top.
+
+Add the same version section (Added / Changed / Fixed) to the top of
+`website/docs/release-notes.md`, right after the frontmatter/intro. The
+wording can be trimmed for a public audience, but every entry in the
+CHANGELOG.md section must have a matching entry here — a feature, fix, or
+behavior change is not "released" until both files describe it.
+
+- [ ] Every CHANGELOG.md entry for this version has a matching entry in
+      `website/docs/release-notes.md`.
 
 ## 4. Verify the package
 

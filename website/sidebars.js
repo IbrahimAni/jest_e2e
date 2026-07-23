@@ -30,6 +30,7 @@ const sidebars = {
         'api/cli',
       ],
     },
+    'release-notes',
   ],
 };
 
